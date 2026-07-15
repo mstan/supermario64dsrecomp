@@ -11,9 +11,9 @@ namespace {
 
 constexpr const char* kDefaultRom = "Super Mario 64 DS.nds";
 constexpr const char* kExpectedSha1 =
-    "a5b8bd846725965c588b6fc591f1fe822f7bbdbd";
+    "1367529f2cb23e76ef295cb1727333ae8f0a6cd7";
 constexpr const char* kExpectedTitle = "S.MARIO64DS";
-constexpr const char* kExpectedGameCode = "ASME";
+constexpr const char* kExpectedGameCode = "ASMP";
 constexpr std::size_t kExpectedSize = 16u * 1024u * 1024u;
 
 std::vector<uint8_t> read_file(const std::string& path) {
@@ -45,14 +45,14 @@ uint32_t read_u32(const std::vector<uint8_t>& rom, std::size_t offset) {
 void print_targets() {
     std::puts("Available selections:");
     std::puts("  firmware  ndsrecomp firmware-menu developer target");
-    std::puts("  sm64ds    Super Mario 64 DS (USA v1.0; selection-only)");
+    std::puts("  sm64ds    Super Mario 64 DS (Europe v1.0; banks compiled)");
 }
 
 void print_usage(const char* exe) {
     std::fprintf(stderr,
         "usage: %s [--list] [--select firmware|sm64ds] [--rom <path>]\n"
         "\n"
-        "Selection validates metadata only. It never boots or executes the game.\n",
+        "Selection validates the ROM and reports the current boot boundary.\n",
         exe);
 }
 
@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
         ok = false;
     }
     if (!ok) {
-        std::fputs("refusing selection: this scaffold is pinned to ASME v1.0\n",
+        std::fputs("refusing selection: this scaffold is pinned to ASMP v1.0\n",
                    stderr);
         return 1;
     }
@@ -138,8 +138,10 @@ int main(int argc, char** argv) {
                 title.c_str(), game_code.c_str(), revision, digest.c_str());
     std::printf("arm9_entry=0x%08x arm7_entry=0x%08x\n",
                 read_u32(rom, 0x24u), read_u32(rom, 0x34u));
-    std::puts("decomp_reference=tangosdev/sm64ds-decomp (EU; mapping required)");
-    std::puts("boot_status=not_implemented");
-    std::puts("launch=not_requested");
+    std::puts("decomp_reference=tangosdev/sm64ds-decomp (EU; address-compatible)");
+    std::puts("recompile_status=arm9_main_3090_functions+arm7_initial_closure");
+    std::puts("boot_status=blocked_on_cartridge_runtime");
+    std::puts("blocker=framework_gamecard_currently_models_an_empty_slot");
+    std::puts("launch=not_started");
     return 0;
 }

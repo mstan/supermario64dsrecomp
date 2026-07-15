@@ -1,7 +1,10 @@
 # SuperMario64DSRecomp
 
-Very early, selection-only scaffold for a future Super Mario 64 DS static
-recompilation target. It does not boot or execute the game yet.
+Very early pre-alpha scaffold for a future Super Mario 64 DS static
+recompilation target. It recompiles and host-compiles the European game's
+initial ARM9 and ARM7 code banks and now boots through the authentic
+BIOS/firmware cartridge path into the title flow. It does **not support
+gameplay yet**.
 
 This is a sibling game repository in the same shape used by the SNES and PSX
 recomp projects:
@@ -12,93 +15,93 @@ ndsrecomp/
   supermario64dsrecomp/     this per-game repository
 ```
 
-The local `ndsrecomp` entry inside this directory is an ignored junction to the
-sibling framework. CMake builds the real ndsrecomp ARM core/recompiler and the
-small `SuperMario64DSRecomp` selector together. There is intentionally no game
-generated C or dispatch table yet.
+The local `ndsrecomp` entry is an ignored junction to the sibling framework.
+The ROM, extracted images, generated recompilation output, and third-party
+checkout are all local ignored inputs.
 
-## Current local ROM identity
+## Verified local target
 
-The scaffold is pinned to a user-owned USA revision 0 dump:
+The scaffold is pinned to the European revision-0 retail build used by the
+online decomp:
 
 | field | value |
 |---|---|
 | file | `Super Mario 64 DS.nds` (Git-ignored) |
 | title | `S.MARIO64DS` |
-| game code | `ASME` |
+| game code | `ASMP` |
 | size | 16 MiB |
-| SHA-1 | `a5b8bd846725965c588b6fc591f1fe822f7bbdbd` |
-| SHA-256 | `916056a27ffb07d1bae2ce0ca6f6464c1621c737dc96657a7b9eab4d3bccfc87` |
+| SHA-1 | `1367529f2cb23e76ef295cb1727333ae8f0a6cd7` |
+| SHA-256 | `ce5829aaa79f06c67140ed1f45cbca738b0a9d0180538c8c1498472d859db032` |
 
-The ROM is local input only. Never commit it, extracted files, generated code,
-screenshots, or other Nintendo material.
+Never commit the ROM, archive artwork/NFO files, extracted binaries, generated
+code, screenshots, or other Nintendo material.
 
-## SM64DS decomp reference
+## Decomp-assisted recompilation
 
 [`tangosdev/sm64ds-decomp`](https://github.com/tangosdev/sm64ds-decomp) is
-pinned in `sm64ds-decomp.pin`. Its original work is MIT-licensed and provides
-a valuable module registry, symbol names, relocations, types, and matching C.
+pinned in `sm64ds-decomp.pin`. Its original MIT-licensed work supplies exact
+European ARM9 function names, modes, sizes, and module boundaries. The scaffold
+uses that metadata; it does not compile the decomp's matched C or copy it here.
 
-Important: upstream currently targets the **European** retail build; this
-scaffold's ROM is the **USA** `ASME` build. The decomp is therefore a
-nomenclature, structure, and future region-mapping reference for now. Its EU
-addresses and hashes must not be imported directly into the USA config.
-The optional checkout lives under ignored `third_party/sm64ds-decomp/`.
+`tools/prepare_sm64ds.py` verifies the local ROM, decompresses its ARM9 image,
+and generates ignored ndsrecomp configs. The current build then:
 
-The first integration seam is intentionally metadata-only. It exports every
-upstream symbol with its module identity preserved (main/ITCM/DTCM/overlay),
-because overlay address ranges overlap:
+- recompiles all 3,090 decomp-defined functions in the ARM9 main module;
+- emits that bank with live-byte validation, because the game decompresses its
+  ARM9 image in place at startup;
+- discovers and recompiles the initial 14-function ARM7 boot closure;
+- compiles the generated C banks into `libsm64ds_recompiled_banks.a`.
 
-```sh
-python tools/export_decomp_symbols.py
-```
+The ROM-derived outputs live under ignored `generated/` and are never suitable
+for source control or release artifacts.
 
-This writes ignored `generated/eu_decomp_symbols.tsv` and labels every row as
-European. Nothing consumes those addresses as USA addresses.
+## Local setup and build
 
-## Local setup
-
-From this directory on Windows, recreate the ignored sibling link and optional
-decomp checkout with:
+Create the ignored sibling link and pinned decomp checkout, then install
+`ndspy` in the checkout's local virtual environment:
 
 ```powershell
 New-Item -ItemType Junction -Path ndsrecomp -Target ..\ndsrecomp
-git clone --depth 1 https://github.com/tangosdev/sm64ds-decomp.git third_party/sm64ds-decomp
+git clone https://github.com/tangosdev/sm64ds-decomp.git third_party/sm64ds-decomp
 git -C third_party/sm64ds-decomp checkout --detach 3b7450212bf0fae706a3be9bbd2d31d5c588b54f
+py -3.12 -m venv third_party/sm64ds-decomp/.venv
+third_party/sm64ds-decomp/.venv/Scripts/python.exe -m pip install ndspy
 ```
 
-Copy your own verified `ASME` revision 0 dump to
-`Super Mario 64 DS.nds`. All three local inputs are ignored by Git.
+Place your own verified European dump at `Super Mario 64 DS.nds`, then build:
 
-## Build without booting
-
-Prerequisites are CMake 3.20+, Ninja, and a C++20 compiler.
-
-```sh
+```powershell
 cmake -G Ninja -S . -B build
 cmake --build build --target supermario64dsrecomp
 ```
 
-The selector supports two metadata-only choices:
+The build graph verifies and prepares the ROM, builds ndsrecomp, emits both
+game banks, compiles them, and builds the selector. To inspect the current
+boundary:
 
-```sh
-./build/SuperMario64DSRecomp --list
-./build/SuperMario64DSRecomp --select firmware
+```powershell
 ./build/SuperMario64DSRecomp --select sm64ds --rom "Super Mario 64 DS.nds"
 ```
 
-The SM64DS selection verifies the header, revision, size, and SHA-1, prints
-`boot_status=not_implemented`, and exits without executing guest code.
+## Current boot boundary
 
-## Next real integration steps
+The fake direct-boot shortcut remains deliberately unused. ndsrecomp now models
+the physical-card command path used by the firmware, including chip identity,
+ROM streaming, DMA, KEY1 commands, and normalization of already-decrypted ROM
+secure areas before the BIOS decrypts them.
 
-1. Establish a verified EU-to-USA module/address mapping, or add a USA branch
-   to the decomp workflow.
-2. Add a framework-owned NDS cartridge parser and per-game config schema.
-3. Emit ARM9, ARM7, and overlay banks from the local ROM into ignored
-   `generated/`.
-4. Link those banks into a per-game runtime only after the DS cartridge boot
-   path and overlay lifecycle exist in ndsrecomp.
+The tested local target passes the firmware menu, launches both game CPUs,
+renders the Nintendo splash, accepts the game's `TOUCH TO START` input, and
+reaches the main title flow without a terminal dispatch miss or CPU stall. At
+the retained VBlank-1100 smoke boundary, native and the pinned melonDS oracle
+match the core VBlank, IPC FIFO, SPI, and IRQ event counts.
+
+The upper title screen is recognizable and close to the oracle. The lower
+screen is not correct after the title transition: Engine B/3D composition is
+incomplete, so the Mario-face/menu screen is currently blank or white. This is
+a boot milestone, not a gameplay milestone. Next work includes the lower-screen
+2D/3D path, the full 3D engine, NitroFS/overlay coverage, and broader ARM7/game
+service validation.
 
 No project-wide license has been declared for this scaffold yet. Upstream
 references retain their respective terms.
