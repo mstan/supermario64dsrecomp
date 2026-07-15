@@ -1,0 +1,145 @@
+#include "sha1.h"
+
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <vector>
+
+namespace {
+
+constexpr const char* kDefaultRom = "Super Mario 64 DS.nds";
+constexpr const char* kExpectedSha1 =
+    "a5b8bd846725965c588b6fc591f1fe822f7bbdbd";
+constexpr const char* kExpectedTitle = "S.MARIO64DS";
+constexpr const char* kExpectedGameCode = "ASME";
+constexpr std::size_t kExpectedSize = 16u * 1024u * 1024u;
+
+std::vector<uint8_t> read_file(const std::string& path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file) return {};
+    const std::streamsize size = file.tellg();
+    if (size <= 0) return {};
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> bytes(static_cast<std::size_t>(size));
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), size)) return {};
+    return bytes;
+}
+
+std::string ascii_field(const std::vector<uint8_t>& rom,
+                        std::size_t offset, std::size_t size) {
+    std::string value(reinterpret_cast<const char*>(rom.data() + offset), size);
+    while (!value.empty() && (value.back() == '\0' || value.back() == ' '))
+        value.pop_back();
+    return value;
+}
+
+uint32_t read_u32(const std::vector<uint8_t>& rom, std::size_t offset) {
+    return static_cast<uint32_t>(rom[offset + 0])
+         | (static_cast<uint32_t>(rom[offset + 1]) << 8)
+         | (static_cast<uint32_t>(rom[offset + 2]) << 16)
+         | (static_cast<uint32_t>(rom[offset + 3]) << 24);
+}
+
+void print_targets() {
+    std::puts("Available selections:");
+    std::puts("  firmware  ndsrecomp firmware-menu developer target");
+    std::puts("  sm64ds    Super Mario 64 DS (USA v1.0; selection-only)");
+}
+
+void print_usage(const char* exe) {
+    std::fprintf(stderr,
+        "usage: %s [--list] [--select firmware|sm64ds] [--rom <path>]\n"
+        "\n"
+        "Selection validates metadata only. It never boots or executes the game.\n",
+        exe);
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    std::string selection = "sm64ds";
+    std::string rom_path = kDefaultRom;
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--list") {
+            print_targets();
+            return 0;
+        }
+        if (arg == "--help" || arg == "-h") {
+            print_usage(argv[0]);
+            return 0;
+        }
+        if (arg == "--select" && i + 1 < argc) {
+            selection = argv[++i];
+            continue;
+        }
+        if (arg == "--rom" && i + 1 < argc) {
+            rom_path = argv[++i];
+            continue;
+        }
+        std::fprintf(stderr, "unknown or incomplete argument: %s\n", arg.c_str());
+        print_usage(argv[0]);
+        return 2;
+    }
+
+    if (selection == "firmware") {
+        std::puts("selection=firmware");
+        std::puts("status=available in the sibling ndsrecomp framework");
+        std::puts("launch=not requested");
+        return 0;
+    }
+    if (selection != "sm64ds") {
+        std::fprintf(stderr, "unknown selection: %s\n", selection.c_str());
+        print_targets();
+        return 2;
+    }
+
+    const std::vector<uint8_t> rom = read_file(rom_path);
+    if (rom.size() < 0x40u) {
+        std::fprintf(stderr, "unable to read an NDS header from: %s\n",
+                     rom_path.c_str());
+        return 1;
+    }
+
+    const std::string title = ascii_field(rom, 0x00u, 12u);
+    const std::string game_code = ascii_field(rom, 0x0Cu, 4u);
+    const unsigned revision = rom[0x1Eu];
+    const std::string digest = gba::sha1(rom.data(), rom.size()).hex();
+
+    bool ok = true;
+    if (rom.size() != kExpectedSize) {
+        std::fprintf(stderr, "ROM size mismatch: got %zu, expected %zu\n",
+                     rom.size(), kExpectedSize);
+        ok = false;
+    }
+    if (title != kExpectedTitle || game_code != kExpectedGameCode || revision != 0u) {
+        std::fprintf(stderr,
+            "ROM identity mismatch: title=%s code=%s revision=%u\n",
+            title.c_str(), game_code.c_str(), revision);
+        ok = false;
+    }
+    if (digest != kExpectedSha1) {
+        std::fprintf(stderr, "ROM SHA-1 mismatch: got %s, expected %s\n",
+                     digest.c_str(), kExpectedSha1);
+        ok = false;
+    }
+    if (!ok) {
+        std::fputs("refusing selection: this scaffold is pinned to ASME v1.0\n",
+                   stderr);
+        return 1;
+    }
+
+    std::puts("selection=sm64ds");
+    std::printf("rom=%s\n", rom_path.c_str());
+    std::printf("title=%s game_code=%s revision=%u sha1=%s\n",
+                title.c_str(), game_code.c_str(), revision, digest.c_str());
+    std::printf("arm9_entry=0x%08x arm7_entry=0x%08x\n",
+                read_u32(rom, 0x24u), read_u32(rom, 0x34u));
+    std::puts("decomp_reference=tangosdev/sm64ds-decomp (EU; mapping required)");
+    std::puts("boot_status=not_implemented");
+    std::puts("launch=not_requested");
+    return 0;
+}

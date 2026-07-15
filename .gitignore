@@ -1,0 +1,24 @@
+# User-owned Nintendo DS images and anything extracted/generated from them.
+*.nds
+/extracted/
+/generated/
+
+# Local sibling framework link and optional upstream decomp checkout.
+/ndsrecomp
+/third_party/
+
+# Build trees and local selection state.
+/build/
+/build-*/
+/rom.cfg
+/settings.toml
+
+# Tool/editor output.
+__pycache__/
+*.pyc
+*.log
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

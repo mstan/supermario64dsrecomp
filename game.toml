@@ -1,0 +1,36 @@
+[game]
+name = "Super Mario 64 DS"
+id = "ASME"
+region = "USA"
+revision = 0
+status = "selection-only"
+rom = "Super Mario 64 DS.nds"
+rom_size = 0x01000000
+sha1 = "a5b8bd846725965c588b6fc591f1fe822f7bbdbd"
+sha256 = "916056a27ffb07d1bae2ce0ca6f6464c1621c737dc96657a7b9eab4d3bccfc87"
+
+[arm9]
+rom_offset = 0x00004000
+entry_pc = 0x02004800
+load_address = 0x02004000
+size = 0x000580ac
+
+[arm7]
+rom_offset = 0x001b0000
+entry_pc = 0x02380000
+load_address = 0x02380000
+size = 0x00024b64
+
+[framework]
+path = "ndsrecomp"
+pin = "87f7ad46482d7f63ab9f83ae31f2bb44fc7aed1a"
+
+[decomp]
+url = "https://github.com/tangosdev/sm64ds-decomp.git"
+pin = "3b7450212bf0fae706a3be9bbd2d31d5c588b54f"
+upstream_region = "Europe"
+address_compatible = false
+use = "module layout, symbol nomenclature, types, and future region mapping"
+
+# Upstream currently targets the European ROM, while this scaffold's verified
+# local dump is ASME revision 0 (USA). Never import EU addresses blindly.

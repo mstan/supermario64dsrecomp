@@ -1,0 +1,15 @@
+# Optional ROM-free reference checkout. Upstream is MIT-licensed original work.
+url = https://github.com/tangosdev/sm64ds-decomp.git
+sha = 3b7450212bf0fae706a3be9bbd2d31d5c588b54f
+region = Europe
+
+# Useful metadata once region mapping exists:
+#   config/arm9/config.yaml
+#   config/arm9/symbols.txt
+#   config/arm9/{itcm,dtcm}/symbols.txt
+#   config/arm9/overlays/ov*/{symbols,relocs,delinks}.txt
+#   symbols/verified.tsv
+#   tools/modules.py
+#
+# The local ROM is ASME revision 0 (USA), so upstream EU addresses are
+# reference-only until a verified region mapping is established.
