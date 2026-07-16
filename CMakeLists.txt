@@ -152,6 +152,50 @@ if(EXISTS "${SM64DS_ARM7_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM7_RAM_BIN}")
     list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM7_RAM_SOURCES})
 endif()
 
+# The ARM9 runtime-RAM bank: the game copies code out of the static closure
+# at runtime — ITCM-resident fast paths plus overlays loaded over and past
+# the arm9.bin image. Source image is a guest-produced ITCM+main-RAM
+# composite (tools/capture_arm9_ram_bank.py, fw_arm9 bank model: the 32 KiB
+# ITCM high mirror at 0x01FF8000 immediately precedes main RAM); every
+# generated function carries a live-byte validation. Optional like the ARM7
+# RAM bank above.
+set(SM64DS_ARM9_RAM_CONFIG
+    "${CMAKE_CURRENT_SOURCE_DIR}/config/sm64ds_arm9_ram.toml")
+set(SM64DS_ARM9_RAM_BIN
+    "${SM64DS_GENERATED_DIR}/capture/sm64ds_arm9_ram.bin")
+if(EXISTS "${SM64DS_ARM9_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM9_RAM_BIN}")
+    set(SM64DS_ARM9_RAM_SOURCES)
+    foreach(shard RANGE 0 15)
+        if(shard LESS 10)
+            set(shard_name "0${shard}")
+        else()
+            set(shard_name "${shard}")
+        endif()
+        list(APPEND SM64DS_ARM9_RAM_SOURCES
+            "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_${shard_name}.c")
+    endforeach()
+    list(APPEND SM64DS_ARM9_RAM_SOURCES
+        "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_dispatch.c")
+    add_custom_command(
+        OUTPUT ${SM64DS_ARM9_RAM_SOURCES}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
+        COMMAND $<TARGET_FILE:nds_recompile>
+                --config "${SM64DS_ARM9_RAM_CONFIG}"
+                --bin "${SM64DS_ARM9_RAM_BIN}"
+                --out "${SM64DS_RECOMP_DIR}"
+                --bank sm64ds_arm9_ram
+                --shards 16
+                --stable-address-shards
+                --max-function-bytes 512
+                --validate-live-bytes
+        DEPENDS nds_recompile
+                "${SM64DS_ARM9_RAM_CONFIG}"
+                "${SM64DS_ARM9_RAM_BIN}"
+        COMMENT "Statically recompiling the SM64DS ARM9 runtime-RAM bank")
+    list(APPEND SM64DS_ARM9_SOURCES ${SM64DS_ARM9_RAM_SOURCES})
+    list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM9_RAM_SOURCES})
+endif()
+
 # Compile the ROM-derived generated banks with the same C ABI as the framework
 # runner. They stay ignored and are not linked into the selector until the
 # cartridge runtime can actually reach them.
