@@ -108,6 +108,50 @@ add_custom_command(
     DEPENDS nds_recompile ${SM64DS_PREP_OUTPUTS}
     COMMENT "Statically recompiling the initial SM64DS ARM7 closure")
 
+# The ARM7 runtime-RAM bank: the game relocates its steady-state ARM7 code
+# (sound engine + services) into shared WRAM / ARM7 WRAM / high main RAM
+# during boot, beyond the ROM-derived closure above. Its source image is a
+# guest-produced capture (tools/capture_arm7_ram_bank.py); every generated
+# function carries a live-byte validation, so dispatch only fires once the
+# guest's own boot has reproduced those bytes. Optional: fresh checkouts
+# build without it until the capture has been produced locally.
+set(SM64DS_ARM7_RAM_CONFIG
+    "${CMAKE_CURRENT_SOURCE_DIR}/config/sm64ds_arm7_ram.toml")
+set(SM64DS_ARM7_RAM_BIN
+    "${SM64DS_GENERATED_DIR}/capture/sm64ds_arm7_ram.bin")
+if(EXISTS "${SM64DS_ARM7_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM7_RAM_BIN}")
+    set(SM64DS_ARM7_RAM_SOURCES)
+    foreach(shard RANGE 0 15)
+        if(shard LESS 10)
+            set(shard_name "0${shard}")
+        else()
+            set(shard_name "${shard}")
+        endif()
+        list(APPEND SM64DS_ARM7_RAM_SOURCES
+            "${SM64DS_RECOMP_DIR}/sm64ds_arm7_ram_${shard_name}.c")
+    endforeach()
+    list(APPEND SM64DS_ARM7_RAM_SOURCES
+        "${SM64DS_RECOMP_DIR}/sm64ds_arm7_ram_dispatch.c")
+    add_custom_command(
+        OUTPUT ${SM64DS_ARM7_RAM_SOURCES}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
+        COMMAND $<TARGET_FILE:nds_recompile>
+                --config "${SM64DS_ARM7_RAM_CONFIG}"
+                --bin "${SM64DS_ARM7_RAM_BIN}"
+                --out "${SM64DS_RECOMP_DIR}"
+                --bank sm64ds_arm7_ram
+                --shards 16
+                --stable-address-shards
+                --max-function-bytes 512
+                --validate-live-bytes
+        DEPENDS nds_recompile
+                "${SM64DS_ARM7_RAM_CONFIG}"
+                "${SM64DS_ARM7_RAM_BIN}"
+        COMMENT "Statically recompiling the SM64DS ARM7 runtime-RAM bank")
+    list(APPEND SM64DS_ARM7_SOURCES ${SM64DS_ARM7_RAM_SOURCES})
+    list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM7_RAM_SOURCES})
+endif()
+
 # Compile the ROM-derived generated banks with the same C ABI as the framework
 # runner. They stay ignored and are not linked into the selector until the
 # cartridge runtime can actually reach them.
