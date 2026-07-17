@@ -196,6 +196,48 @@ if(EXISTS "${SM64DS_ARM9_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM9_RAM_BIN}")
     list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM9_RAM_SOURCES})
 endif()
 
+# Gameplay replaces large ARM9 overlay ranges that are also hot during the
+# title/attract window. Preserve both captured byte generations as distinct
+# content-validated banks instead of pairing one union of entry points with
+# whichever image happened to be captured last.
+set(SM64DS_ARM9_RAM_GAMEPLAY_CONFIG
+    "${CMAKE_CURRENT_SOURCE_DIR}/config/sm64ds_arm9_ram_gameplay.toml")
+set(SM64DS_ARM9_RAM_GAMEPLAY_BIN
+    "${SM64DS_GENERATED_DIR}/capture/sm64ds_arm9_ram_gameplay.bin")
+if(EXISTS "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}" AND
+   EXISTS "${SM64DS_ARM9_RAM_GAMEPLAY_BIN}")
+    set(SM64DS_ARM9_RAM_GAMEPLAY_SOURCES)
+    foreach(shard RANGE 0 15)
+        if(shard LESS 10)
+            set(shard_name "0${shard}")
+        else()
+            set(shard_name "${shard}")
+        endif()
+        list(APPEND SM64DS_ARM9_RAM_GAMEPLAY_SOURCES
+            "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_gameplay_${shard_name}.c")
+    endforeach()
+    list(APPEND SM64DS_ARM9_RAM_GAMEPLAY_SOURCES
+        "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_gameplay_dispatch.c")
+    add_custom_command(
+        OUTPUT ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
+        COMMAND $<TARGET_FILE:nds_recompile>
+                --config "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
+                --bin "${SM64DS_ARM9_RAM_GAMEPLAY_BIN}"
+                --out "${SM64DS_RECOMP_DIR}"
+                --bank sm64ds_arm9_ram_gameplay
+                --shards 16
+                --stable-address-shards
+                --max-function-bytes 512
+                --validate-live-bytes
+        DEPENDS nds_recompile
+                "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
+                "${SM64DS_ARM9_RAM_GAMEPLAY_BIN}"
+        COMMENT "Statically recompiling the SM64DS ARM9 gameplay RAM bank")
+    list(APPEND SM64DS_ARM9_SOURCES ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES})
+    list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES})
+endif()
+
 # Compile the ROM-derived generated banks with the same C ABI as the framework
 # runner. They stay ignored and are not linked into the selector until the
 # cartridge runtime can actually reach them.
