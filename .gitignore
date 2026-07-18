@@ -3,8 +3,7 @@
 /extracted/
 /generated/
 
-# Local sibling framework link and optional upstream decomp checkout.
-/ndsrecomp
+# Optional upstream decomp checkout.
 /third_party/
 
 # Build trees and local selection state.

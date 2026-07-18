@@ -1,0 +1,3 @@
+[submodule "ndsrecomp"]
+	path = ndsrecomp
+	url = https://github.com/mstan/ndsrecomp.git

@@ -6,18 +6,9 @@ initial ARM9 and ARM7 code banks and now boots through the authentic
 BIOS/firmware cartridge path into the title flow. It does **not support
 gameplay yet**.
 
-This is a sibling game repository in the same shape used by the SNES and PSX
-recomp projects:
-
-```text
-ndsrecomp/
-  ndsrecomp/                 shared Nintendo DS framework repository
-  supermario64dsrecomp/     this per-game repository
-```
-
-The local `ndsrecomp` entry is an ignored junction to the sibling framework.
-The ROM, extracted images, generated recompilation output, and third-party
-checkout are all local ignored inputs.
+The shared Nintendo DS framework is pinned as the `ndsrecomp` Git submodule.
+The ROM, extracted images, generated recompilation output, and optional
+third-party checkout are all local ignored inputs.
 
 ## Verified local target
 
@@ -57,11 +48,11 @@ for source control or release artifacts.
 
 ## Local setup and build
 
-Create the ignored sibling link and pinned decomp checkout, then install
+Initialize the framework submodule and pinned decomp checkout, then install
 `ndspy` in the checkout's local virtual environment:
 
 ```powershell
-New-Item -ItemType Junction -Path ndsrecomp -Target ..\ndsrecomp
+git submodule update --init --recursive
 git clone https://github.com/tangosdev/sm64ds-decomp.git third_party/sm64ds-decomp
 git -C third_party/sm64ds-decomp checkout --detach 3b7450212bf0fae706a3be9bbd2d31d5c588b54f
 py -3.12 -m venv third_party/sm64ds-decomp/.venv
