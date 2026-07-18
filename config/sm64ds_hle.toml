@@ -1,0 +1,12 @@
+version = 1
+
+[program]
+bank = "sm64ds_arm9"
+sha1 = "16e6c9168e34f267cb427bacb388e4783dadc584"
+
+[[routine]]
+id = "sm64ds.mul_vec3_mat4x3"
+address = 0x02052858
+end_address = 0x02052914
+mode = "arm"
+

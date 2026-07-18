@@ -29,6 +29,8 @@ set(SM64DS_DECOMP_ROOT
 set(SM64DS_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated")
 set(SM64DS_INPUT_DIR "${SM64DS_GENERATED_DIR}/inputs")
 set(SM64DS_RECOMP_DIR "${SM64DS_GENERATED_DIR}/recomp")
+set(SM64DS_HLE_MANIFEST
+    "${CMAKE_CURRENT_SOURCE_DIR}/config/sm64ds_hle.toml")
 
 set(_sm64ds_pinned_python
     "${SM64DS_DECOMP_ROOT}/.venv/Scripts/python.exe")
@@ -93,7 +95,8 @@ add_custom_command(
             # correctness-sensitive mid-function Tier-3 handoff.
             --max-function-bytes 16384
             --validate-live-bytes
-    DEPENDS nds_recompile ${SM64DS_PREP_OUTPUTS}
+            --hle-manifest "${SM64DS_HLE_MANIFEST}"
+    DEPENDS nds_recompile ${SM64DS_PREP_OUTPUTS} "${SM64DS_HLE_MANIFEST}"
     COMMENT "Statically recompiling the SM64DS ARM9 main module")
 add_custom_command(
     OUTPUT ${SM64DS_ARM7_SOURCES}
