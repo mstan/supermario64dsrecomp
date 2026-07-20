@@ -94,5 +94,8 @@ a boot milestone, not a gameplay milestone. Next work includes the lower-screen
 2D/3D path, the full 3D engine, NitroFS/overlay coverage, and broader ARM7/game
 service validation.
 
-No project-wide license has been declared for this scaffold yet. Upstream
-references retain their respective terms.
+The original code in this scaffold is released under the MIT License; see
+[`LICENSE`](LICENSE). This grant covers only this repository's own source. The
+`ndsrecomp` submodule, upstream references, and any optional third-party
+checkout retain their respective terms and are not relicensed by it. The game
+ROM and derived images are copyrighted material and are never included.
