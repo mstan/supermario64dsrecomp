@@ -9,4 +9,25 @@ id = "sm64ds.mul_vec3_mat4x3"
 address = 0x02052858
 end_address = 0x02052914
 mode = "arm"
+handler = "sm64ds_mul_vec3_mat4x3"
 
+[[routine]]
+id = "sm64ds.mul_mat4x3_mat4x3"
+address = 0x02052914
+end_address = 0x02052B10
+mode = "arm"
+handler = "sm64ds_mul_mat4x3_mat4x3"
+
+[[routine]]
+id = "sm64ds.particle_delta"
+address = 0x020499BC
+end_address = 0x02049BA8
+mode = "arm"
+handler = "sm64ds_particle_delta_probe"
+
+[[routine]]
+id = "sm64ds.particle_block_delta"
+address = 0x020497A0
+end_address = 0x020499BC
+mode = "arm"
+handler = "sm64ds_particle_block_delta_probe"
