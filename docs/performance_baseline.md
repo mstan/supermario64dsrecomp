@@ -270,6 +270,27 @@ validation completed at 52.82 FPS overall and 41.92 FPS in the target phase.
 Both final framebuffer hashes exactly matched the prior validation and the
 detector found **0 black-band frames out of 1,468 scanned**.
 
+## Tenth measured optimization
+
+ARM9 data-cacheability checks walked up to eight MPU regions for each memory
+access. Each region test also decoded its size and recomputed 64-bit aligned
+bounds, even though those values change only when the guest writes CP15.
+Region writes now precompute the exact base and end once; hot cacheability
+queries perform only comparisons and retain the same highest-region priority.
+
+A reversed-order A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Decode MPU bounds per access | 44.04 FPS | 45.66 FPS | 44.85 FPS |
+| Precomputed MPU bounds | 46.27 FPS | 46.28 FPS | 46.28 FPS |
+
+That is a **3.2% mean improvement** in the target phase. Full-sequence
+validation completed at 57.32 FPS overall, 49.10 FPS in the target phase, and
+59.66 FPS in castle/water. Both final framebuffer hashes exactly matched the
+prior validation and the detector found **0 black-band frames out of 1,470
+scanned**.
+
 ## Reproduction
 
 ```powershell
