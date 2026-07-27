@@ -177,6 +177,19 @@ That is a **20.6% mean improvement** in the target phase. Full-sequence
 validation completed at 42.02 FPS overall, produced the exact prior final
 framebuffer hashes, and found **0 black-band frames out of 1,470 scanned**.
 
+## Fifth measured optimization
+
+With the menu phase fully native, the original 4,096-entry direct-mapped
+dispatch cache had more active PCs competing for slots. Expanding it to
+16,384 entries reduced normalized `lookup_static_cached` samples from 19.2%
+to 15.6% of the active main thread.
+
+The reversed-order A/B was a smaller end-to-end result: 34.02 FPS before
+versus 34.62 FPS after on average, a **1.8% improvement**. The added host
+memory is roughly 1.5 MiB across both CPU caches. Full-sequence validation
+completed successfully and found **0 black-band frames out of 1,470
+scanned**.
+
 ## Reproduction
 
 ```powershell
