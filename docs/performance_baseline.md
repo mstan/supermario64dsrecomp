@@ -154,6 +154,29 @@ FPS in the former worst phase. All nine visual checkpoints passed, final
 framebuffer hashes matched the prior validated run, and the detector found
 **0 black-band frames out of 1,470 scanned**.
 
+## Fourth measured optimization
+
+After Tier 3 was eliminated, the native profile attributed about 41% of
+active main-thread samples to dispatch lookup and validation bookkeeping.
+Each cached main-RAM hit still resolved its validation page back through the
+bus solely to read the same generation counter.
+
+The dispatch cache now retains a pointer to that stable main-RAM page counter.
+ITCM, WRAM, and other mapping-sensitive ranges continue through the original
+resolver. An in-process reset remains safe because RAM is initialized before
+`runtime_init` clears the dispatch cache.
+
+A near-time, reversed-order A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Resolve generation page | 28.38 FPS | 25.09 FPS | 26.73 FPS |
+| Cached generation pointer | 32.93 FPS | 31.58 FPS | 32.25 FPS |
+
+That is a **20.6% mean improvement** in the target phase. Full-sequence
+validation completed at 42.02 FPS overall, produced the exact prior final
+framebuffer hashes, and found **0 black-band frames out of 1,470 scanned**.
+
 ## Reproduction
 
 ```powershell
