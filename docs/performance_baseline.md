@@ -316,6 +316,26 @@ validation and the detector found **0 black-band frames out of 1,470
 scanned**. The lower single-run result versus the preceding validation is
 retained as variance; the improvement claim is based on the reversed A/B.
 
+## Twelfth measured optimization
+
+Immutable dispatch-cache hits do not have writable-RAM validation pages.
+Their zero `page_count` already records that fact inside the aligned cache
+line, so the hot path now uses it directly instead of following the cached
+dispatch-entry pointer to inspect its validation descriptor.
+
+A near-time A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Entry validation pointer chase | 47.24 FPS | 47.07 FPS | 47.15 FPS |
+| Cache-line `page_count` check | 47.37 FPS | 47.22 FPS | 47.30 FPS |
+
+That is a small but repeatable **0.3% mean improvement** in the target phase.
+Full-sequence validation completed at 57.05 FPS overall, 48.92 FPS in the
+target phase, and 59.88 FPS in castle/water. Both final framebuffer hashes
+exactly matched the prior validation and the detector found **0 black-band
+frames out of 1,470 scanned**.
+
 ## Reproduction
 
 ```powershell
