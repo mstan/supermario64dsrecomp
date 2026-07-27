@@ -190,6 +190,18 @@ memory is roughly 1.5 MiB across both CPU caches. Full-sequence validation
 completed successfully and found **0 black-band frames out of 1,470
 scanned**.
 
+## Sixth measured optimization
+
+Instruction-level samples showed that the remaining lookup cost was still
+dominated by binary-search refills. Raising the cache from 16,384 to 65,536
+entries reduced those conflicts further at a total two-CPU cache size of
+about 7 MiB.
+
+The reversed-order A/B averaged 35.31 FPS with 16K entries and 37.86 FPS with
+64K entries, a **7.2% improvement**. Full-sequence validation completed at
+53.69 FPS overall in that run and found **0 black-band frames out of 1,469
+scanned**.
+
 ## Reproduction
 
 ```powershell
