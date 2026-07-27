@@ -202,6 +202,31 @@ The reversed-order A/B averaged 35.31 FPS with 16K entries and 37.86 FPS with
 53.69 FPS overall in that run and found **0 black-band frames out of 1,469
 scanned**.
 
+## Seventh measured optimization
+
+After expanding the dispatch cache, the native profile attributed another
+7.4% of active main-thread samples to executable-page generation lookup.
+The active static execution guard re-resolved its main-RAM validation pages
+whenever a nested static call returned, despite those generation arrays
+remaining stable for the lifetime of the runtime instance.
+
+The active guard now retains direct pointers to main-RAM generation counters,
+just as the dispatch cache does. Mapping-sensitive ranges still use the full
+resolver. A reversed-order A/B of the target phase measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Resolve active-guard pages | 37.15 FPS | 35.26 FPS | 36.21 FPS |
+| Cached guard generation pointers | 37.74 FPS | 37.05 FPS | 37.40 FPS |
+
+That is a **3.3% mean improvement**. The earlier attract and Adventure-menu
+phases improved by similar amounts in the same four launches. A subsequent
+full-sequence run completed at 52.47 FPS overall and 39.22 FPS in the target
+phase; its final framebuffer hashes exactly matched the prior validation and
+the detector found **0 black-band frames out of 1,469 scanned**. The lower
+single-run overall result versus the prior 53.69 FPS validation is retained
+here as observed host/run variance rather than treated as an additional gain.
+
 ## Reproduction
 
 ```powershell
