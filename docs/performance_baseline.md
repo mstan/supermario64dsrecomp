@@ -106,6 +106,30 @@ and completed the complete Yoshi path correctly. This is a confirmed hotspot
 reduction; a new multi-run performance baseline is still required because
 whole-machine variance was high during these runs.
 
+## Second measured optimization
+
+The post-dispatch profile still attributed 743 of 13,055 active main-thread
+samples (5.7%) directly to diagnostic trace-ring recording. Normal play had
+deep tracing disabled, but block-level runtime events and Tier-3 instruction
+events were still recorded into rings that nothing would read.
+
+Trace-ring recording is now fully gated by the existing deep-trace switch.
+The TCP `deep_trace` command can still enable both rings live when diagnostic
+history is needed.
+
+A near-time, reversed-order A/B measured the exact worst phase twice with
+each executable:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Prior tracing behavior | 23.58 FPS | 23.02 FPS | 23.30 FPS |
+| Trace rings gated | 25.82 FPS | 25.00 FPS | 25.41 FPS |
+
+That is a **9.1% mean improvement** under the same noisy host conditions.
+All four runs produced identical end-frame hashes. A subsequent complete
+boot-to-Yoshi validation rendered all nine checkpoints correctly and found
+**0 black-band frames out of 1,470 scanned**.
+
 ## Reproduction
 
 ```powershell
