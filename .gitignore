@@ -9,6 +9,8 @@
 # Build trees and local selection state.
 /build/
 /build-*/
+/perf-results/
+/tools/windows_rip_sampler.exe
 /rom.cfg
 /settings.toml
 
