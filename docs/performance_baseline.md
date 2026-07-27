@@ -336,6 +336,27 @@ target phase, and 59.88 FPS in castle/water. Both final framebuffer hashes
 exactly matched the prior validation and the detector found **0 black-band
 frames out of 1,470 scanned**.
 
+## Thirteenth measured optimization
+
+The aligned dispatch cache still held a pointer back into the immutable
+dispatch table. Every hit therefore loaded the cache line and then touched
+the separate table to obtain the native function and validation descriptor.
+Those two pointers now live directly in the cache entry, while lookup still
+returns only one pointer and therefore keeps the efficient Windows x64 ABI.
+
+A near-time A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Dispatch-table pointer | 47.02 FPS | 47.30 FPS | 47.16 FPS |
+| Cache-resident target | 48.72 FPS | 47.93 FPS | 48.32 FPS |
+
+That is a **2.5% mean improvement** in the target phase. Full-sequence
+validation completed at 57.75 FPS overall, 50.07 FPS in the target phase,
+and 59.82 FPS in castle/water. Both final framebuffer hashes exactly matched
+the prior validation and the detector found **0 black-band frames out of
+1,469 scanned**.
+
 ## Reproduction
 
 ```powershell
