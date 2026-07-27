@@ -130,6 +130,30 @@ All four runs produced identical end-frame hashes. A subsequent complete
 boot-to-Yoshi validation rendered all nine checkpoints correctly and found
 **0 black-band frames out of 1,470 scanned**.
 
+## Third measured optimization
+
+Exact counters around the worst phase found 22,038,496 of roughly 94.9
+million ARM9 instructions (23.2%) executing through the Tier-3 interpreter.
+The phase crossed into Tier 3 512,112 times, averaging only 43 interpreted
+instructions per entry.
+
+Coverage discovery identified 928 missing entry points whose hot bytes match
+the existing attract/menu ARM9 RAM capture. Adding those entries to that
+content-validated bank reduced the phase to:
+
+- 0 Tier-3 entries;
+- 0 Tier-3 instructions.
+
+Every promoted function still carries full live-byte validation, so a later
+overlay generation cannot execute stale native code. A reversed-order
+two-run A/B was noisy (the baseline ranged from 24.00 to 30.78 FPS), but the
+means were 27.39 FPS before and 29.33 FPS after, a 7.1% improvement.
+
+The full promoted-bank validation completed at 42.96 FPS overall and 33.27
+FPS in the former worst phase. All nine visual checkpoints passed, final
+framebuffer hashes matched the prior validated run, and the detector found
+**0 black-band frames out of 1,470 scanned**.
+
 ## Reproduction
 
 ```powershell
@@ -142,6 +166,11 @@ py -3 tools/measure_sm64ds_scenario.py --threaded 0 --scan-black-bands
 
 # Native instruction-pointer sample of the worst menu phase (Windows)
 py -3 tools/profile_sm64ds_worst_phase.py --output perf-results/worst-phase-sample
+
+# Tier-3 counts and copied-code entry coverage (timing is diagnostic only)
+py -3 tools/profile_sm64ds_worst_phase.py `
+  --output perf-results/worst-phase-coverage `
+  --no-symbolize --discover-static-misses
 ```
 
 Generated JSON, logs, screenshots, and copied executables live under the

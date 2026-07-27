@@ -323,6 +323,7 @@ def launch_runtime(
     threaded: bool,
     stdout_path: pathlib.Path,
     stderr_path: pathlib.Path,
+    extra_args: tuple[str, ...] = (),
 ) -> tuple[subprocess.Popen[bytes], Any, Any]:
     environment = os.environ.copy()
     environment["NDS_3D_THREADED"] = "1" if threaded else "0"
@@ -346,6 +347,7 @@ def launch_runtime(
             str(rom),
             "--port",
             str(port),
+            *extra_args,
         ],
         cwd=FRAMEWORK_ROOT,
         env=environment,

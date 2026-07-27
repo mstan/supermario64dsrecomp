@@ -205,6 +205,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="retain raw RIP samples but skip the slower symbol-resolution pass",
     )
+    parser.add_argument(
+        "--discover-static-misses",
+        action="store_true",
+        help="record Tier-3 entry coverage (diagnostic run; distorts timing)",
+    )
     return parser.parse_args()
 
 
@@ -224,6 +229,7 @@ def main() -> int:
         True,
         output_dir / "runner.stdout.log",
         output_dir / "runner.stderr.log",
+        ("--discover-static-misses",) if args.discover_static_misses else (),
     )
     client = None
     sampler = None
@@ -249,7 +255,23 @@ def main() -> int:
             stderr=subprocess.PIPE,
             text=True,
         )
+        before_tier3 = client.cmd("static_coverage")
         phase = scenario.measure_frames(client, *scenario.FRAME_PHASES[2])
+        after_tier3 = client.cmd("static_coverage")
+        tier3_coverage = (
+            client.cmd("tier3_coverage", max=262144)["entries"]
+            if args.discover_static_misses
+            else []
+        )
+        tier3_hot_bytes = []
+        if args.discover_static_misses:
+            for entry in sorted(
+                tier3_coverage, key=lambda item: item["hits"], reverse=True
+            )[:32]:
+                memory = client.cmd(
+                    "read_mem", cpu=entry["cpu"], addr=entry["pc"], len=64
+                )
+                tier3_hot_bytes.append({**entry, "bytes": memory["hex"]})
         assert sampler.stdin is not None
         sampler.stdin.write("\n")
         sampler.stdin.flush()
@@ -267,6 +289,9 @@ def main() -> int:
             "executable": str(executable),
             "executable_sha256": scenario.sha256_file(executable),
             "phase": phase,
+            "tier3_delta": scenario.subtract(after_tier3, before_tier3),
+            "tier3_coverage": tier3_coverage,
+            "tier3_hot_bytes": tier3_hot_bytes,
             "sampler": {
                 "interval_us": args.interval_us,
                 "runtime_image_base": f"0x{runtime_base:x}",
