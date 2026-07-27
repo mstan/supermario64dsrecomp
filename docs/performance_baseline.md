@@ -250,6 +250,26 @@ detector found **0 black-band frames out of 1,471 scanned**. As above, the
 single full-run overall FPS is retained as observed variance; the gain is
 based on the near-time reversed-order A/B.
 
+## Ninth measured optimization
+
+The 56-byte dispatch-cache entry layout required repeated integer
+multiplication to find a slot and allowed hot entries to straddle 64-byte host
+cache lines. Aligning each entry to 64 bytes makes every entry occupy exactly
+one cache line and lets the compiler replace the multiplications with shifts.
+The two-CPU cache grows from about 7 MiB to 8 MiB.
+
+A reversed-order A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Packed 56-byte entries | 38.65 FPS | 36.18 FPS | 37.41 FPS |
+| Aligned 64-byte entries | 39.33 FPS | 39.42 FPS | 39.38 FPS |
+
+That is a **5.3% mean improvement** in the target phase. Full-sequence
+validation completed at 52.82 FPS overall and 41.92 FPS in the target phase.
+Both final framebuffer hashes exactly matched the prior validation and the
+detector found **0 black-band frames out of 1,468 scanned**.
+
 ## Reproduction
 
 ```powershell
