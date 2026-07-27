@@ -291,6 +291,31 @@ validation completed at 57.32 FPS overall, 49.10 FPS in the target phase, and
 prior validation and the detector found **0 black-band frames out of 1,470
 scanned**.
 
+## Eleventh measured optimization
+
+Dispatch lookup returned a two-pointer aggregate containing the selected
+native function and validation descriptor. The Windows x64 ABI returned that
+aggregate through a hidden stack buffer on every dispatch, even though both
+pointers already live together in the immutable dispatch entry. Lookup and
+the cache now return a single `DispatchEntry` pointer. A separate byte retains
+the distinction between callable hits and cached inactive validation
+candidates.
+
+A reversed-order A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Aggregate lookup result | 44.42 FPS | 46.41 FPS | 45.41 FPS |
+| Dispatch-entry pointer | 46.61 FPS | 45.51 FPS | 46.06 FPS |
+
+That is a **1.4% mean improvement** in the target phase, with normalized
+emulator time improving by about 1.2%. Full-sequence validation completed at
+57.14 FPS overall, 48.28 FPS in the target phase, and 59.79 FPS in
+castle/water. Both final framebuffer hashes exactly matched the prior
+validation and the detector found **0 black-band frames out of 1,470
+scanned**. The lower single-run result versus the preceding validation is
+retained as variance; the improvement claim is based on the reversed A/B.
+
 ## Reproduction
 
 ```powershell
