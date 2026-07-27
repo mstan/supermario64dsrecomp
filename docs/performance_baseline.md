@@ -227,6 +227,29 @@ the detector found **0 black-band frames out of 1,469 scanned**. The lower
 single-run overall result versus the prior 53.69 FPS validation is retained
 here as observed host/run variance rather than treated as an additional gain.
 
+## Eighth measured optimization
+
+Instruction-level dispatch samples showed roughly 5% of the active main
+thread copying the complete 45-byte static execution guard into and out of a
+global object around nested native calls. The guard is now held in its owning
+dispatch stack frame, while a global pointer links to the currently active
+guard. Nested calls restore only that pointer and still revalidate the outer
+guard before resuming it, preserving detection of writes through aliases.
+
+A reversed-order A/B measured:
+
+| Build | Run 1 | Run 2 | Mean |
+|---|---:|---:|---:|
+| Copy guard state | 38.30 FPS | 38.83 FPS | 38.57 FPS |
+| Stack-linked guard | 41.39 FPS | 42.12 FPS | 41.76 FPS |
+
+That is an **8.3% mean improvement** in the target phase. Full-sequence
+validation completed at 51.54 FPS overall and 39.91 FPS in the target phase.
+Both final framebuffer hashes exactly matched the prior validation and the
+detector found **0 black-band frames out of 1,471 scanned**. As above, the
+single full-run overall FPS is retained as observed variance; the gain is
+based on the near-time reversed-order A/B.
+
 ## Reproduction
 
 ```powershell
