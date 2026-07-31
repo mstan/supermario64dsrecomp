@@ -10,10 +10,14 @@ sha1 = "1367529f2cb23e76ef295cb1727333ae8f0a6cd7"
 sha256 = "ce5829aaa79f06c67140ed1f45cbca738b0a9d0180538c8c1498472d859db032"
 
 [display]
-# Host-only, user-selectable defaults. Adaptive output stays opt-in; SM64DS
-# advertises top-screen support only, leaving the clickable bottom LCD native.
+# Host-only physical window and presentation-quality defaults. Adaptive
+# widescreen is intentionally absent here: the SM64DS launcher exposes it as
+# an opt-in mod which forces separate windows and targets the top screen only.
 screen_layout = "stacked"
-adaptive_widescreen = "none"
+# Host presentation quality. Both stay off/1x by default so deterministic
+# baselines retain their exact native-pixel presentation cost.
+supersampling = 1
+antialiasing = 0
 
 [system]
 # Use the retail firmware's Automatic mode to launch the inserted Slot-1
@@ -35,7 +39,7 @@ size = 0x00024b24
 
 [framework]
 path = "ndsrecomp"
-pin = "87f7ad46482d7f63ab9f83ae31f2bb44fc7aed1a"
+pin = "62d835a557af82c07a65804422676852e9102533"
 
 [decomp]
 url = "https://github.com/tangosdev/sm64ds-decomp.git"
