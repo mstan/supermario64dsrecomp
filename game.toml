@@ -15,6 +15,12 @@ sha256 = "ce5829aaa79f06c67140ed1f45cbca738b0a9d0180538c8c1498472d859db032"
 screen_layout = "stacked"
 adaptive_widescreen = "none"
 
+[system]
+# Use the retail firmware's Automatic mode to launch the inserted Slot-1
+# cartridge after the normal BIOS/firmware safety path. Set "manual" to return
+# to the DS menu, or "preserve" to honor the dumped console setting.
+startup_mode = "automatic"
+
 [arm9]
 rom_offset = 0x00004000
 entry_pc = 0x02004800

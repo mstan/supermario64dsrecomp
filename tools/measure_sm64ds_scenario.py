@@ -177,17 +177,30 @@ def framebuffer_digest(client: DebugClient) -> dict[str, str]:
     return result
 
 
-def save_screenshot(client: DebugClient, path: pathlib.Path) -> None:
+def save_screenshot(
+    client: DebugClient,
+    path: pathlib.Path,
+    adaptive_top: bool = False,
+) -> None:
     # Pillow is optional unless visual checkpoint evidence is requested.
     from PIL import Image
 
-    width_a, height_a, rgb_a = client.framebuffer("A")
+    width_a, height_a, rgb_a = client.framebuffer(
+        "A", adaptive=adaptive_top
+    )
     width_b, height_b, rgb_b = client.framebuffer("B")
-    if width_a != width_b:
-        raise RuntimeError("engine framebuffer widths differ")
-    image = Image.new("RGB", (width_a, height_a + height_b))
-    image.paste(Image.frombytes("RGB", (width_a, height_a), rgb_a), (0, 0))
-    image.paste(Image.frombytes("RGB", (width_b, height_b), rgb_b), (0, height_a))
+    canvas_width = max(width_a, width_b)
+    image = Image.new(
+        "RGB", (canvas_width, height_a + height_b), (20, 20, 20)
+    )
+    image.paste(
+        Image.frombytes("RGB", (width_a, height_a), rgb_a),
+        ((canvas_width - width_a) // 2, 0),
+    )
+    image.paste(
+        Image.frombytes("RGB", (width_b, height_b), rgb_b),
+        ((canvas_width - width_b) // 2, height_a),
+    )
     image.save(path)
 
 
@@ -260,6 +273,7 @@ def measure_frames(
     label: str,
     frame_count: int,
     screenshot_path: pathlib.Path | None = None,
+    adaptive_screenshot: bool = False,
 ) -> dict[str, Any]:
     before_front = live_stats(client)
     before_profile = profile_snapshot(client)
@@ -278,8 +292,10 @@ def measure_frames(
     result["end_event_counts"] = client.event_counts()
     result["end_framebuffer_sha256"] = framebuffer_digest(client)
     if screenshot_path is not None:
-        save_screenshot(client, screenshot_path)
+        save_screenshot(client, screenshot_path, adaptive_screenshot)
         result["end_screenshot"] = str(screenshot_path)
+        if adaptive_screenshot:
+            result["end_gx_polygons"] = client.cmd("gx_polygons")
     print(
         f"{label}: {result['frames']} frames in {result['seconds']:.3f}s, "
         f"{result['fps']:.3f} FPS",
@@ -294,6 +310,7 @@ def measure_to_insn9(
     target_insn9: int,
     requested_insn9: int,
     screenshot_path: pathlib.Path | None = None,
+    adaptive_screenshot: bool = False,
 ) -> dict[str, Any]:
     before_counts = client.event_counts()
     before_front = live_stats(client)
@@ -315,8 +332,10 @@ def measure_to_insn9(
     result["end_event_counts"] = end_counts
     result["end_framebuffer_sha256"] = framebuffer_digest(client)
     if screenshot_path is not None:
-        save_screenshot(client, screenshot_path)
+        save_screenshot(client, screenshot_path, adaptive_screenshot)
         result["end_screenshot"] = str(screenshot_path)
+        if adaptive_screenshot:
+            result["end_gx_polygons"] = client.cmd("gx_polygons")
     print(
         f"{label}: {result['insn9']} ARM9 instructions and "
         f"{result['frames']} frames in {result['seconds']:.3f}s, "
@@ -339,6 +358,9 @@ def launch_runtime(
 ) -> tuple[subprocess.Popen[bytes], Any, Any]:
     environment = os.environ.copy()
     environment["NDS_3D_THREADED"] = "1" if threaded else "0"
+    # This traversal intentionally measures the firmware menu. Keep it stable
+    # when the title's normal game.toml opts into retail Automatic boot.
+    environment["NDS_STARTUP_MODE"] = "manual"
     environment.pop("NDS_3D_RENDERER", None)  # default software renderer
     environment.pop("NDS_DEEP_TRACE", None)  # interactive defaults it off
     if profiled:
@@ -413,6 +435,8 @@ def run_repetition(
     screenshots: bool,
     threaded: bool,
     scan_black_bands: bool,
+    adaptive_screenshots: bool,
+    stop_after_phase: str | None,
 ) -> dict[str, Any]:
     mode = "profiled" if profiled else "plain"
     stem = f"{mode}-{repetition:02d}"
@@ -425,6 +449,9 @@ def run_repetition(
         threaded,
         output_dir / f"{stem}.stdout.log",
         output_dir / f"{stem}.stderr.log",
+        ("--adaptive-widescreen", "top")
+        if adaptive_screenshots
+        else (),
     )
     client: DebugClient | None = None
     try:
@@ -444,7 +471,13 @@ def run_repetition(
                 if screenshots
                 else None
             )
-            return measure_frames(client, label, frames, screenshot_path)
+            return measure_frames(
+                client,
+                label,
+                frames,
+                screenshot_path,
+                adaptive_screenshots,
+            )
 
         phases.append(measure(FRAME_PHASES[0]))
         touch(client, 128, 120)  # TOUCH TO START
@@ -473,6 +506,7 @@ def run_repetition(
                     file_a_insn9 + cumulative_target,
                     cumulative_target - previous_target,
                     screenshot_path,
+                    adaptive_screenshots,
                 )
             )
             previous_target = cumulative_target
@@ -493,6 +527,8 @@ def run_repetition(
                         bytes.fromhex(rgb_hex),
                     ).save(capture_path)
                     black_band_capture["screenshot"] = str(capture_path)
+            if label == stop_after_phase:
+                break
 
         result = {
             "mode": mode,
@@ -555,6 +591,16 @@ def parse_args() -> argparse.Namespace:
         "--scan-black-bands",
         action="store_true",
         help="scan every settled-Yoshi frame and retain the worst partial black band",
+    )
+    parser.add_argument(
+        "--adaptive-screenshots",
+        action="store_true",
+        help="request the runner's top adaptive surface for screenshots",
+    )
+    parser.add_argument(
+        "--stop-after-phase",
+        choices=[label for label, _ in INSN_PHASES],
+        help="end a diagnostic run after the selected instruction phase",
     )
     return parser.parse_args()
 
@@ -630,6 +676,8 @@ def main() -> int:
                 args.screenshots,
                 bool(args.threaded),
                 args.scan_black_bands,
+                args.adaptive_screenshots,
+                args.stop_after_phase,
             )
             report["runs"].append(run)
             report["summary"] = aggregate_runs(report["runs"])

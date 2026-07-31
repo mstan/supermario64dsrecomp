@@ -81,6 +81,22 @@ the physical-card command path used by the firmware, including chip identity,
 ROM streaming, DMA, KEY1 commands, and normalization of already-decrypted ROM
 secure areas before the BIOS decrypts them.
 
+The title configuration uses the original firmware's Automatic startup mode,
+so an inserted SM64DS cartridge launches without a host-simulated menu click.
+This only changes the redundant user-setting copies and their CRCs in memory;
+use `--startup-mode manual` when testing the DS menu itself.
+
+SM64DS exposes an opt-in adaptive top-screen surface up to 448x192 (21:9).
+Set `display.screen_layout = "separate"` and
+`display.adaptive_widescreen = "top"` in `game.toml`, or pass
+`--screen-layout separate --adaptive-widescreen top`. The bottom screen stays
+native and clickable in its own window. World geometry uses the wider
+horizontal field of view; left/right HUD sprites follow the new corners while
+center overlays stay centered. The exact European ROM is capability-gated,
+and unsupported bottom/both requests fail closed. The castle skybox has a
+title-specific cylindrical seam repair; a future decomp-side visibility patch
+can replace that presentation repair for artist-perfect peripheral sky.
+
 The tested local target passes the firmware menu, launches both game CPUs,
 renders the Nintendo splash, accepts the game's `TOUCH TO START` input, and
 reaches the main title flow without a terminal dispatch miss or CPU stall. At
