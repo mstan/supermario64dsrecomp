@@ -311,3 +311,35 @@ add_dependencies(supermario64dsrecomp sm64ds_recompiled_banks)
 if(NOT MSVC)
     target_compile_options(supermario64dsrecomp PRIVATE -Wall -Wextra)
 endif()
+
+# Native recomp-ui launcher. The adaptive camera extension is a title mod;
+# physical stacked/separate windows and presentation quality remain ordinary
+# Display settings.
+option(SM64DS_BUILD_LAUNCHER "Build the SM64DS recomp-ui launcher" ON)
+set(SM64DS_RUNNER_EXE
+    "${NDSRECOMP_ROOT}/runner/build-sm64-native/nds_runner.exe"
+    CACHE FILEPATH "Path to the native nds_runner executable")
+if(SM64DS_BUILD_LAUNCHER AND WIN32)
+    set(SM64DS_RECOMP_UI_ROOT
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/recomp-ui"
+        CACHE PATH "Path to the recomp-ui checkout")
+    if(NOT EXISTS "${SM64DS_RECOMP_UI_ROOT}/recomp_ui.cmake")
+        message(FATAL_ERROR
+            "recomp-ui submodule missing. Run "
+            "`git submodule update --init third_party/recomp-ui`.")
+    endif()
+    find_package(SDL2 CONFIG REQUIRED)
+    add_executable(sm64ds_launcher src/launcher_main.cpp)
+    target_link_libraries(sm64ds_launcher PRIVATE SDL2::SDL2)
+    target_compile_definitions(sm64ds_launcher PRIVATE
+        SM64DS_RUNNER_EXE="${SM64DS_RUNNER_EXE}"
+        SM64DS_BIOS_DIR="${NDSRECOMP_ROOT}/bios"
+        SM64DS_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+    set(RECOMP_UI_ROOT "${SM64DS_RECOMP_UI_ROOT}")
+    set(RECOMP_UI_SDL3 OFF CACHE BOOL "" FORCE)
+    set(RECOMP_UI_ENABLE_MODS ON CACHE BOOL "" FORCE)
+    include("${SM64DS_RECOMP_UI_ROOT}/recomp_ui.cmake")
+    recomp_target_launcher_ui(sm64ds_launcher
+        CONSOLE nds
+        BOXART "${CMAKE_CURRENT_SOURCE_DIR}/assets/boxart_sm64ds_eu.tga")
+endif()
