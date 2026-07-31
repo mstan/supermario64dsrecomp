@@ -201,6 +201,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=19842)
     parser.add_argument("--interval-us", type=int, default=1000)
     parser.add_argument(
+        "--phase",
+        default="adventure_to_file_select",
+        choices=[label for label, _ in scenario.FRAME_PHASES]
+        + [label for label, _ in scenario.INSN_PHASES],
+        help="scenario phase to sample (navigation replays every earlier phase)",
+    )
+    parser.add_argument(
         "--no-symbolize",
         action="store_true",
         help="retain raw RIP samples but skip the slower symbol-resolution pass",
@@ -238,25 +245,58 @@ def main() -> int:
         client = scenario.wait_for_client(process, args.port)
         scenario.wait_until_frame(client, scenario.BOOT_TO_FIRMWARE_FRAMES)
         scenario.touch(client, 128, 48)
-        scenario.measure_frames(client, *scenario.FRAME_PHASES[0])
-        scenario.touch(client, 128, 120)
-        scenario.measure_frames(client, *scenario.FRAME_PHASES[1])
-        scenario.touch(client, 128, 168)
 
-        sampler = subprocess.Popen(
-            [
-                str(SAMPLER_EXE),
-                str(process.pid),
-                str(samples_path),
-                str(args.interval_us),
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        before_tier3 = client.cmd("static_coverage")
-        phase = scenario.measure_frames(client, *scenario.FRAME_PHASES[2])
+        # Replay the canonical scenario up to the requested phase, then
+        # sample only that phase's window. Touch order matches
+        # measure_sm64ds_scenario.run_repetition exactly.
+        frame_touches = ((128, 120), (128, 168), (43, 70))
+        frame_labels = [label for label, _ in scenario.FRAME_PHASES]
+        insn_labels = [label for label, _ in scenario.INSN_PHASES]
+
+        def start_sampler() -> subprocess.Popen[str]:
+            return subprocess.Popen(
+                [
+                    str(SAMPLER_EXE),
+                    str(process.pid),
+                    str(samples_path),
+                    str(args.interval_us),
+                ],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+        phase = None
+        before_tier3 = None
+        for index, frame_phase in enumerate(scenario.FRAME_PHASES):
+            if frame_phase[0] == args.phase:
+                sampler = start_sampler()
+                before_tier3 = client.cmd("static_coverage")
+                phase = scenario.measure_frames(client, *frame_phase)
+                break
+            scenario.measure_frames(client, *frame_phase)
+            scenario.touch(client, *frame_touches[index])
+        else:
+            # Target is an instruction-anchored phase past File A.
+            file_a_insn9 = client.event_counts()["insn9"]
+            previous_target = 0
+            for label, cumulative_target in scenario.INSN_PHASES:
+                if label == args.phase:
+                    sampler = start_sampler()
+                    before_tier3 = client.cmd("static_coverage")
+                phase = scenario.measure_to_insn9(
+                    client,
+                    label,
+                    file_a_insn9 + cumulative_target,
+                    cumulative_target - previous_target,
+                    None,
+                )
+                previous_target = cumulative_target
+                if label == args.phase:
+                    break
+        if sampler is None or phase is None or before_tier3 is None:
+            raise RuntimeError(f"phase {args.phase!r} was never reached")
         after_tier3 = client.cmd("static_coverage")
         tier3_coverage = (
             client.cmd("tier3_coverage", max=262144)["entries"]

@@ -357,6 +357,54 @@ and 59.82 FPS in castle/water. Both final framebuffer hashes exactly matched
 the prior validation and the detector found **0 black-band frames out of
 1,469 scanned**.
 
+## 2026-07-31 re-baseline and headroom profile
+
+Framework `728d12b`, target `737c826`, quiet host (measurements gated on
+zero compiler processes; contaminated runs discarded and repeated). Three
+clean single-repetition runs, threaded soft 3D, black-band scan on.
+
+The acceptance framing adds an explicit headroom metric: presented FPS
+saturates near 60 under audio pacing, so headroom is the emulation phase
+milliseconds per presented frame (`phase_ms_per_frame.emu`). 16.7 ms is
+break-even; **12.8 ms is 1.3x headroom (goal); 8.3 ms is 2x (aspiration)**.
+
+| Phase | Median FPS | Min FPS | Median emu ms/f | Median underruns |
+|---|---:|---:|---:|---:|
+| Initial load / attract | 48.62 | 47.91 | 15.51 | 190 |
+| Title to Adventure menu | 56.55 | 55.83 | 14.79 | 45 |
+| Adventure to File Select | 43.47 | 41.38 | 22.40 | 167 |
+| New-game load | 57.16 | 56.46 | 14.94 | 71 |
+| Castle and water cutscene | 58.67 | 57.39 | 15.68 | 48 |
+| First character arrival | 59.36 | 59.29 | 14.99 | 16 |
+| Everyone present | 53.69 | 49.36 | 18.05 | 148 |
+| Everyone to Yoshi | 53.48 | 52.80 | 17.43 | 431 |
+| Controllable Yoshi | 59.78 | 59.41 | 14.58 | 2 |
+
+Whole-scenario medians per run: 55.31 / 54.37 / 55.94 FPS. Black-band
+detector: 0 affected frames in all three runs.
+
+The load-bearing observation is the **~14.5-15.5 ms emulation floor in
+every phase**, nearly independent of scene content. A profiled repetition
+plus RIP samples of three windows (worst menu phase, controllable Yoshi,
+attract) attribute the floor consistently on the main thread:
+
+- dispatch machinery (`runtime_dispatch` + `lookup_static_cached` +
+  `bus_exec_page_generation`): **29.7-31.7%** in every sampled window;
+  `lookup_static_cached` alone reaches 16.6% during controllable Yoshi;
+- per-instruction ABI helpers (`runtime_code_cycles`, `runtime_tick`,
+  `runtime_should_yield`, `runtime_mem_cycles`, cycle-combine):
+  **14.8-19.3%**;
+- GPU2D scanline rendering: 5.6-9.8%; bus/CP15 ~3.5-4%; timers ~1.8%;
+  SPU ~0.7-2.4%; 3D bridge (submit/GetLine/sync144) at most 1.3 ms/frame
+  in Yoshi and near zero in menus — the threaded worker renders in
+  parallel and does not block the main thread;
+- Tier-3 delta during the Yoshi and worst-phase sample windows: **zero**
+  entries, zero instructions, zero clean-RAM rejects on both CPUs.
+
+Roughly half of main-thread time is recompiler machinery rather than
+guest work, uniformly across scenes. Dispatch is the dominant class
+(rule-23 target); the per-instruction helper cluster is second.
+
 ## Reproduction
 
 ```powershell
@@ -369,6 +417,10 @@ py -3 tools/measure_sm64ds_scenario.py --threaded 0 --scan-black-bands
 
 # Native instruction-pointer sample of the worst menu phase (Windows)
 py -3 tools/profile_sm64ds_worst_phase.py --output perf-results/worst-phase-sample
+
+# Same sampler on any scenario phase (navigation replays earlier phases)
+py -3 tools/profile_sm64ds_worst_phase.py --phase yoshi_settled `
+  --output perf-results/yoshi-sample
 
 # Tier-3 counts and copied-code entry coverage (timing is diagnostic only)
 py -3 tools/profile_sm64ds_worst_phase.py `
