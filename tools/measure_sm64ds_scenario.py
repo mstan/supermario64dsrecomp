@@ -111,6 +111,18 @@ def live_stats(client: DebugClient) -> dict[str, Any]:
     return stats
 
 
+def profile_snapshot(client: DebugClient) -> dict[str, Any]:
+    # dispatch_stats is always-on; merging it here lets subtract() produce
+    # per-phase dispatch composition deltas alongside the profile buckets.
+    snapshot = client.cmd("profile")
+    try:
+        snapshot["dispatch"] = client.cmd("dispatch_stats")
+    except RuntimeError as error:
+        if str(error) != "dispatch_stats: unknown cmd":
+            raise
+    return snapshot
+
+
 def wait_until_frame(
     client: DebugClient, target: int, timeout_seconds: float = 180.0
 ) -> dict[str, Any]:
@@ -250,11 +262,11 @@ def measure_frames(
     screenshot_path: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     before_front = live_stats(client)
-    before_profile = client.cmd("profile")
+    before_profile = profile_snapshot(client)
     target = before_front["frames"] + frame_count
     wait_until_frame(client, target)
     after_front = live_stats(client)
-    after_profile = client.cmd("profile")
+    after_profile = profile_snapshot(client)
     result = summarize_window(
         label,
         frame_count,
@@ -285,10 +297,10 @@ def measure_to_insn9(
 ) -> dict[str, Any]:
     before_counts = client.event_counts()
     before_front = live_stats(client)
-    before_profile = client.cmd("profile")
+    before_profile = profile_snapshot(client)
     end_counts = wait_until_insn9(client, target_insn9)
     after_front = live_stats(client)
-    after_profile = client.cmd("profile")
+    after_profile = profile_snapshot(client)
     result = summarize_window(
         label,
         0,
