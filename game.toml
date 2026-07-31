@@ -9,6 +9,12 @@ rom_size = 0x01000000
 sha1 = "1367529f2cb23e76ef295cb1727333ae8f0a6cd7"
 sha256 = "ce5829aaa79f06c67140ed1f45cbca738b0a9d0180538c8c1498472d859db032"
 
+[display]
+# Host-only, user-selectable defaults. Adaptive output stays opt-in; SM64DS
+# advertises top-screen support only, leaving the clickable bottom LCD native.
+screen_layout = "stacked"
+adaptive_widescreen = "none"
+
 [arm9]
 rom_offset = 0x00004000
 entry_pc = 0x02004800
