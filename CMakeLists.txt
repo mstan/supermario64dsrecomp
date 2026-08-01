@@ -215,10 +215,14 @@ if(EXISTS "${SM64DS_ARM9_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM9_RAM_BIN}")
                 --stable-address-shards
                 --max-function-bytes 512
                 --validate-live-bytes
+                --coalesce-fallthroughs
+                --preceding-dispatch
+                    "${SM64DS_RECOMP_DIR}/sm64ds_arm9_dispatch.c"
         COMMAND ${CMAKE_COMMAND} -E touch "${SM64DS_ARM9_RAM_STAMP}"
         DEPENDS nds_recompile
                 "${SM64DS_ARM9_RAM_CONFIG}"
                 "${SM64DS_ARM9_RAM_BIN}"
+                "${SM64DS_ARM9_STAMP}"
         COMMENT "Statically recompiling the SM64DS ARM9 runtime-RAM bank")
     list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM9_RAM_STAMP}")
     list(APPEND SM64DS_ARM9_SOURCES ${SM64DS_ARM9_RAM_SOURCES})
@@ -263,11 +267,18 @@ if(EXISTS "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}" AND
                 --stable-address-shards
                 --max-function-bytes 512
                 --validate-live-bytes
+                --coalesce-fallthroughs
+                --preceding-dispatch
+                    "${SM64DS_RECOMP_DIR}/sm64ds_arm9_dispatch.c"
+                --preceding-dispatch
+                    "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_dispatch.c"
         COMMAND ${CMAKE_COMMAND} -E touch
                 "${SM64DS_ARM9_RAM_GAMEPLAY_STAMP}"
         DEPENDS nds_recompile
                 "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
                 "${SM64DS_ARM9_RAM_GAMEPLAY_BIN}"
+                "${SM64DS_ARM9_STAMP}"
+                "${SM64DS_ARM9_RAM_STAMP}"
         COMMENT "Statically recompiling the SM64DS ARM9 gameplay RAM bank")
     list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM9_RAM_GAMEPLAY_STAMP}")
     list(APPEND SM64DS_ARM9_SOURCES ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES})
