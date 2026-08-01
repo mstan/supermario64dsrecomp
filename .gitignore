@@ -10,6 +10,8 @@
 /build/
 /build-*/
 /perf-results/
+/saves/
+*.sav
 /tools/windows_rip_sampler.exe
 /rom.cfg
 /settings.toml

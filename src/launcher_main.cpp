@@ -140,10 +140,12 @@ bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
     const fs::path bios = fs::path(SM64DS_BIOS_DIR);
     const fs::path source = fs::path(SM64DS_SOURCE_DIR);
     const fs::path config = source / "game.toml";
+    const fs::path save = source / "saves" / "sm64ds_europe.sav";
 
     std::wstring command =
         quote(runner) + L" " + quote(bios) +
         L" --interactive --rom " + quote(rom) +
+        L" --save-path " + quote(save) +
         L" --config " + quote(config) +
         L" --screen-layout " +
         (adaptive || display_layout == 1 ? L"separate" : L"stacked") +

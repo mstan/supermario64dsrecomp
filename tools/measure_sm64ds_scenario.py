@@ -379,6 +379,7 @@ def launch_runtime(
             "--interactive",
             "--rom",
             str(rom),
+            "--no-save",
             "--port",
             str(port),
             *extra_args,

@@ -1,10 +1,8 @@
 # SuperMario64DSRecomp
 
-Very early pre-alpha scaffold for a future Super Mario 64 DS static
-recompilation target. It recompiles and host-compiles the European game's
-initial ARM9 and ARM7 code banks and now boots through the authentic
-BIOS/firmware cartridge path into the title flow. It does **not support
-gameplay yet**.
+Pre-alpha Super Mario 64 DS static-recompilation target. It recompiles and
+host-compiles the European game's ARM9 and ARM7 code banks, boots through the
+authentic BIOS/firmware cartridge path, and reaches controllable gameplay.
 
 The shared Nintendo DS framework is pinned as the `ndsrecomp` Git submodule.
 The ROM, extracted images, generated recompilation output, and optional
@@ -93,22 +91,24 @@ Set `display.screen_layout = "separate"` and
 native and clickable in its own window. World geometry uses the wider
 horizontal field of view; left/right HUD sprites follow the new corners while
 center overlays stay centered. The exact European ROM is capability-gated,
-and unsupported bottom/both requests fail closed. The castle skybox has a
-title-specific cylindrical seam repair; a future decomp-side visibility patch
-can replace that presentation repair for artist-perfect peripheral sky.
+and unsupported bottom/both requests fail closed. The castle skybox remains a
+known limitation: some widened camera angles expose black voids or stretched
+peripheral sky. A future model-aware or decomp-side skybox patch is required.
 
 The tested local target passes the firmware menu, launches both game CPUs,
 renders the Nintendo splash, accepts the game's `TOUCH TO START` input, and
-reaches the main title flow without a terminal dispatch miss or CPU stall. At
-the retained VBlank-1100 smoke boundary, native and the pinned melonDS oracle
-match the core VBlank, IPC FIFO, SPI, and IRQ event counts.
+reaches castle-grounds gameplay without a terminal dispatch miss or CPU stall.
+The lower-screen renderer includes text, affine, and extended tiled/bitmap
+backgrounds, including SM64DS's courtyard minimap and its extended palette.
 
-The upper title screen is recognizable and close to the oracle. The lower
-screen is not correct after the title transition: Engine B/3D composition is
-incomplete, so the Mario-face/menu screen is currently blank or white. This is
-a boot milestone, not a gameplay milestone. Next work includes the lower-screen
-2D/3D path, the full 3D engine, NitroFS/overlay coverage, and broader ARM7/game
-service validation.
+For local iteration, use File A as the established fast path into gameplay and
+leave File B new when the opening cutscene is useful. The launcher persists
+the cartridge's 8 KiB EEPROM at `saves/sm64ds_europe.sav`, using atomic host
+file replacement after completed guest write transactions and again at clean
+exit. The automated parity and performance scenarios pass `--no-save`, start
+from blank EEPROM, and drive File A's new-game route so measurements remain
+deterministic. Raw save states remain deferred while the runtime and device
+model are changing.
 
 The original code in this scaffold is released under the MIT License; see
 [`LICENSE`](LICENSE). This grant covers only this repository's own source. The
