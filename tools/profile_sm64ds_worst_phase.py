@@ -208,6 +208,18 @@ def parse_args() -> argparse.Namespace:
         help="scenario phase to sample (navigation replays every earlier phase)",
     )
     parser.add_argument(
+        "--screen-layout",
+        choices=("stacked", "separate"),
+        default="stacked",
+        help="host presentation layout to profile (default: stacked)",
+    )
+    parser.add_argument(
+        "--adaptive-widescreen",
+        choices=("none", "top"),
+        default="none",
+        help="adaptive surface to profile (default: none)",
+    )
+    parser.add_argument(
         "--no-symbolize",
         action="store_true",
         help="retain raw RIP samples but skip the slower symbol-resolution pass",
@@ -227,6 +239,14 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=False)
     build_sampler()
 
+    extra_args = (
+        "--screen-layout",
+        args.screen_layout,
+        "--adaptive-widescreen",
+        args.adaptive_widescreen,
+    )
+    if args.discover_static_misses:
+        extra_args += ("--discover-static-misses",)
     process, stdout_file, stderr_file = scenario.launch_runtime(
         executable,
         args.bios.resolve(),
@@ -236,7 +256,7 @@ def main() -> int:
         True,
         output_dir / "runner.stdout.log",
         output_dir / "runner.stderr.log",
-        ("--discover-static-misses",) if args.discover_static_misses else (),
+        extra_args,
     )
     client = None
     sampler = None

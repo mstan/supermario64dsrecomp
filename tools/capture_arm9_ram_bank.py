@@ -161,6 +161,12 @@ def main() -> int:
     parser.add_argument("--variant",
                         help="capture-generation suffix, for example "
                              "gameplay or castle_interior")
+    parser.add_argument(
+        "--merge-coverage-report",
+        type=Path,
+        help="merge observed ARM9 Tier-3 PCs from a profiler report into the "
+             "existing content-validated generation without recapturing RAM",
+    )
     parser.add_argument("--skip-nav", action="store_true",
                         help="server is already navigated + stopped; only "
                              "pull coverage and capture")
@@ -172,6 +178,60 @@ def main() -> int:
     bank_id = f"sm64ds_arm9_ram{suffix}"
     capture_name = f"{bank_id}.bin"
     config_path = args.config or REPO / "config" / f"{bank_id}.toml"
+
+    if args.merge_coverage_report:
+        bin_path = args.out / capture_name
+        if not config_path.exists() or not bin_path.exists():
+            raise SystemExit(
+                "--merge-coverage-report requires the existing config and "
+                f"source image ({config_path}, {bin_path})"
+            )
+        source_sha1 = hashlib.sha1(bin_path.read_bytes()).hexdigest()
+        config_sha1 = existing_identity(config_path)
+        if source_sha1 != config_sha1:
+            raise SystemExit(
+                f"source identity mismatch: config={config_sha1}, "
+                f"image={source_sha1}"
+            )
+        report = json.loads(args.merge_coverage_report.read_text(
+            encoding="utf-8"
+        ))
+        coverage = report.get("tier3_coverage")
+        if not isinstance(coverage, list):
+            raise SystemExit(
+                "coverage report has no tier3_coverage list; rerun the "
+                "profiler with --discover-static-misses"
+            )
+        observed = {
+            (int(entry["pc"]), "thumb" if entry["thumb"] else "arm")
+            for entry in coverage
+            if entry.get("cpu") == 9 and accept(int(entry["pc"]))
+        }
+        existing = existing_entries(config_path)
+        additions = sorted(observed - existing)
+        if additions:
+            lines = [config_path.read_text(encoding="utf-8").rstrip(), ""]
+            for addr, mode in additions:
+                lines += [
+                    "[[entry_point]]",
+                    f"addr = 0x{addr:08X}",
+                    f'mode = "{mode}"',
+                    'kind = "runtime_observed"',
+                    "",
+                ]
+            config_path.write_text(
+                "\n".join(lines), encoding="utf-8", newline="\n"
+            )
+        print(json.dumps({
+            "config": str(config_path),
+            "source_image": str(bin_path),
+            "source_sha1": source_sha1,
+            "observed_arm9": len(observed),
+            "entries_before": len(existing),
+            "entries_added": len(additions),
+            "entries_after": len(existing) + len(additions),
+        }, indent=2))
+        return 0
 
     client = DebugClient(port=args.port, timeout=args.timeout)
     try:
