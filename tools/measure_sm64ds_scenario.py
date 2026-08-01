@@ -17,6 +17,7 @@ import json
 import os
 import pathlib
 import platform
+import shutil
 import socket
 import statistics
 import subprocess
@@ -45,6 +46,11 @@ FRAME_PHASES = (
     ("adventure_to_file_select", 360),
 )
 
+SAVED_FRAME_PHASES = (
+    FRAME_PHASES[0],
+    FRAME_PHASES[2],
+)
+
 # Cumulative ARM9 instructions after the File A touch. These landmarks came
 # from the visually audited manual path. Unlike host seconds or display-frame
 # guesses, they remain the same guest work when a future build gets faster.
@@ -55,6 +61,11 @@ INSN_PHASES = (
     ("everyone_present", 440_000_000),
     ("everyone_to_yoshi", 720_000_000),   # departure/fade -> Yoshi alone
     ("yoshi_settled", 850_000_000),
+)
+
+SAVED_INSN_PHASES = (
+    ("saved_file_load", 30_000_000),
+    ("saved_yoshi_settled", 100_000_000),
 )
 
 
@@ -169,6 +180,9 @@ def touch(client: DebugClient, x: int, y: int, hold_frames: int = 4) -> None:
 
 
 def framebuffer_digest(client: DebugClient) -> dict[str, str]:
+    sync = client.cmd("framebuffer_sync")
+    if sync.get("active"):
+        wait_until_frame(client, int(sync["frames"]) + 1)
     result: dict[str, str] = {}
     for engine in ("A", "B"):
         width, height, rgb = client.framebuffer(engine)
@@ -364,6 +378,11 @@ def launch_runtime(
     port: int,
     profiled: bool,
     threaded: bool,
+    renderer: str,
+    compute_readback_overlap: bool,
+    compute_direct_present: bool,
+    startup_mode: str,
+    save_path: pathlib.Path | None,
     stdout_path: pathlib.Path,
     stderr_path: pathlib.Path,
     extra_args: tuple[str, ...] = (),
@@ -372,8 +391,17 @@ def launch_runtime(
     environment["NDS_3D_THREADED"] = "1" if threaded else "0"
     # This traversal intentionally measures the firmware menu. Keep it stable
     # when the title's normal game.toml opts into retail Automatic boot.
-    environment["NDS_STARTUP_MODE"] = "manual"
-    environment.pop("NDS_3D_RENDERER", None)  # default software renderer
+    environment["NDS_STARTUP_MODE"] = startup_mode
+    if renderer == "compute":
+        environment["NDS_3D_RENDERER"] = "compute"
+    else:
+        environment.pop("NDS_3D_RENDERER", None)
+    environment["NDS_COMPUTE_READBACK_OVERLAP"] = (
+        "1" if compute_readback_overlap else "0"
+    )
+    environment["NDS_COMPUTE_DIRECT_PRESENT"] = (
+        "1" if compute_direct_present else "0"
+    )
     environment.pop("NDS_DEEP_TRACE", None)  # interactive defaults it off
     if profiled:
         environment["NDS_PROFILE_GPU"] = "1"
@@ -391,7 +419,11 @@ def launch_runtime(
             "--interactive",
             "--rom",
             str(rom),
-            "--no-save",
+            *(
+                ("--save-path", str(save_path))
+                if save_path is not None
+                else ("--no-save",)
+            ),
             "--port",
             str(port),
             *extra_args,
@@ -447,6 +479,11 @@ def run_repetition(
     repetition: int,
     screenshots: bool,
     threaded: bool,
+    renderer: str,
+    compute_readback_overlap: bool,
+    compute_direct_present: bool,
+    save_source: pathlib.Path | None,
+    insn_phases: tuple[tuple[str, int], ...],
     scan_black_bands: bool,
     adaptive_screenshots: bool,
     screen_layout: str,
@@ -455,6 +492,10 @@ def run_repetition(
 ) -> dict[str, Any]:
     mode = "profiled" if profiled else "plain"
     stem = f"{mode}-{repetition:02d}"
+    save_path = None
+    if save_source is not None:
+        save_path = output_dir / f"{stem}.sav"
+        shutil.copy2(save_source, save_path)
     process, stdout_file, stderr_file = launch_runtime(
         executable,
         bios,
@@ -462,6 +503,11 @@ def run_repetition(
         port,
         profiled,
         threaded,
+        renderer,
+        compute_readback_overlap,
+        compute_direct_present,
+        "automatic" if save_source is not None else "manual",
+        save_path,
         output_dir / f"{stem}.stdout.log",
         output_dir / f"{stem}.stderr.log",
         (
@@ -475,7 +521,8 @@ def run_repetition(
     try:
         client = wait_for_client(process, port)
         wait_until_frame(client, BOOT_TO_FIRMWARE_FRAMES)
-        touch(client, 128, 48)  # firmware DS cartridge banner
+        if save_source is None:
+            touch(client, 128, 48)  # firmware DS cartridge banner
 
         phases: list[dict[str, Any]] = []
         screenshot_dir = output_dir / f"{stem}-screenshots"
@@ -498,9 +545,9 @@ def run_repetition(
             )
 
         phases.append(measure(FRAME_PHASES[0]))
-        touch(client, 128, 120)  # TOUCH TO START
-
-        phases.append(measure(FRAME_PHASES[1]))
+        if save_source is None:
+            touch(client, 128, 120)  # TOUCH TO START
+            phases.append(measure(FRAME_PHASES[1]))
         touch(client, 128, 168)  # ADVENTURE
 
         phases.append(measure(FRAME_PHASES[2]))
@@ -509,7 +556,7 @@ def run_repetition(
         file_a_insn9 = client.event_counts()["insn9"]
         previous_target = 0
         black_band_capture: dict[str, Any] | None = None
-        for label, cumulative_target in INSN_PHASES:
+        for label, cumulative_target in insn_phases:
             if scan_black_bands and label == "yoshi_settled":
                 client.cmd("black_band_scan", on=1, reset=1)
             screenshot_path = (
@@ -606,6 +653,37 @@ def parse_args() -> argparse.Namespace:
         help="select the software 3D renderer's host worker thread (default: 1)",
     )
     parser.add_argument(
+        "--renderer",
+        choices=("soft", "compute"),
+        default="soft",
+        help="select the 3D renderer (default: soft)",
+    )
+    parser.add_argument(
+        "--compute-readback-overlap",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help="overlap compute PBO submission with late VBlank (default: 0)",
+    )
+    parser.add_argument(
+        "--compute-direct-present",
+        type=int,
+        choices=(0, 1),
+        default=0,
+        help=(
+            "present supported adaptive gameplay directly from OpenGL and "
+            "skip its CPU readback (default: 0)"
+        ),
+    )
+    parser.add_argument(
+        "--save-source",
+        type=pathlib.Path,
+        help=(
+            "copy this cartridge save per run, use Automatic boot, and "
+            "measure the shortened saved-File-A route"
+        ),
+    )
+    parser.add_argument(
         "--scan-black-bands",
         action="store_true",
         help="scan every settled-Yoshi frame and retain the worst partial black band",
@@ -629,7 +707,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--stop-after-phase",
-        choices=[label for label, _ in INSN_PHASES],
+        choices=[
+            label
+            for label, _ in (*INSN_PHASES, *SAVED_INSN_PHASES)
+        ],
         help="end a diagnostic run after the selected instruction phase",
     )
     return parser.parse_args()
@@ -640,7 +721,10 @@ def main() -> int:
     executable = args.exe.resolve()
     bios = args.bios.resolve()
     rom = args.rom.resolve()
-    for required in (executable, bios, rom):
+    save_source = args.save_source.resolve() if args.save_source else None
+    for required in (executable, bios, rom, save_source):
+        if required is None:
+            continue
         if not required.exists():
             raise FileNotFoundError(required)
     if args.repetitions < 1:
@@ -654,6 +738,17 @@ def main() -> int:
         else TARGET_ROOT / "perf-results" / f"{timestamp}-{mode}"
     )
     output_dir.mkdir(parents=True, exist_ok=False)
+    insn_phases = SAVED_INSN_PHASES if save_source else INSN_PHASES
+    frame_phases = SAVED_FRAME_PHASES if save_source else FRAME_PHASES
+    scenario_inputs = [
+        {"at": "main_menu", "touch": [128, 168]},
+        {"at": "file_select", "touch": [43, 70]},
+    ]
+    if save_source is None:
+        scenario_inputs[0:0] = [
+            {"at": "firmware", "touch": [128, 48]},
+            {"at": "title", "touch": [128, 120]},
+        ]
 
     report: dict[str, Any] = {
         "schema": 1,
@@ -662,18 +757,13 @@ def main() -> int:
             "boot_to_firmware_frames": BOOT_TO_FIRMWARE_FRAMES,
             "frame_phases": [
                 {"label": label, "frames": frames}
-                for label, frames in FRAME_PHASES
+                for label, frames in frame_phases
             ],
             "insn9_phases": [
                 {"label": label, "cumulative_insn9": insn9}
-                for label, insn9 in INSN_PHASES
+                for label, insn9 in insn_phases
             ],
-            "inputs": [
-                {"at": "firmware", "touch": [128, 48]},
-                {"at": "title", "touch": [128, 120]},
-                {"at": "main_menu", "touch": [128, 168]},
-                {"at": "file_select", "touch": [43, 70]},
-            ],
+            "inputs": scenario_inputs,
         },
         "build": {
             "executable": str(executable),
@@ -681,11 +771,16 @@ def main() -> int:
             "framework_revision": git_revision(FRAMEWORK_ROOT),
             "target_revision": git_revision(TARGET_ROOT),
             "profiled": args.profile,
-            "renderer": "soft",
+            "renderer": args.renderer,
+            "compute_readback_overlap": bool(
+                args.compute_readback_overlap
+            ),
+            "compute_direct_present": bool(args.compute_direct_present),
             "gpu3d_threaded": bool(args.threaded),
             "deep_trace": False,
             "screen_layout": args.screen_layout,
             "adaptive_widescreen": args.adaptive_widescreen,
+            "save_source": str(save_source) if save_source else None,
         },
         "host": {
             "platform": platform.platform(),
@@ -707,6 +802,11 @@ def main() -> int:
                 repetition,
                 args.screenshots,
                 bool(args.threaded),
+                args.renderer,
+                bool(args.compute_readback_overlap),
+                bool(args.compute_direct_present),
+                save_source,
+                insn_phases,
                 args.scan_black_bands,
                 args.adaptive_screenshots
                 or args.adaptive_widescreen == "top",
