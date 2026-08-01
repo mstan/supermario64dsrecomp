@@ -84,15 +84,16 @@ so an inserted SM64DS cartridge launches without a host-simulated menu click.
 This only changes the redundant user-setting copies and their CRCs in memory;
 use `--startup-mode manual` when testing the DS menu itself.
 
-SM64DS exposes an opt-in adaptive top-screen surface up to 448x192 (21:9).
-Set `display.screen_layout = "separate"` and
-`display.adaptive_widescreen = "top"` in `game.toml`, or pass
-`--screen-layout separate --adaptive-widescreen top`. The bottom screen stays
-native and clickable in its own window. World geometry uses the wider
-horizontal field of view; left/right HUD sprites follow the new corners while
-center overlays stay centered. The exact European ROM is capability-gated,
-and unsupported bottom/both requests fail closed. The castle skybox remains a
-known limitation: some widened camera angles expose black voids or stretched
+SM64DS defaults to separate top/bottom windows and enables its adaptive
+top-screen mod on first launch, producing a surface up to 448x192 (21:9).
+The display setting and mod can still be disabled independently. Direct runner
+launches can request the same target with `--screen-layout separate
+--adaptive-widescreen top`. The bottom screen stays native and clickable in
+its own window. World geometry uses the wider horizontal field of view;
+left/right HUD sprites follow the new corners while center overlays stay
+centered. The exact European ROM is capability-gated, and unsupported
+bottom/both requests fail closed. The castle skybox remains a known
+limitation: some widened camera angles expose black voids or stretched
 peripheral sky. A future model-aware or decomp-side skybox patch is required.
 
 The tested local target passes the firmware menu, launches both game CPUs,

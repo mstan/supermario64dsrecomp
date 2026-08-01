@@ -11,9 +11,9 @@ sha256 = "ce5829aaa79f06c67140ed1f45cbca738b0a9d0180538c8c1498472d859db032"
 
 [display]
 # Host-only physical window and presentation-quality defaults. Adaptive
-# widescreen is intentionally absent here: the SM64DS launcher exposes it as
-# an opt-in mod which forces separate windows and targets the top screen only.
-screen_layout = "stacked"
+# widescreen remains launcher-mod owned, but the title defaults to the
+# detached two-window arrangement it uses.
+screen_layout = "separate"
 # Host presentation quality. Both stay off/1x by default so deterministic
 # baselines retain their exact native-pixel presentation cost.
 supersampling = 1
@@ -39,7 +39,7 @@ size = 0x00024b24
 
 [framework]
 path = "ndsrecomp"
-pin = "d7bb602f7a227a615f5567da799279e9e228eb75"
+pin = "8c587032f602f07fde3540b05748df83ac355275"
 
 [decomp]
 url = "https://github.com/tangosdev/sm64ds-decomp.git"

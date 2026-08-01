@@ -245,6 +245,18 @@ def summarize_window(
             / frequency
             / max(frames, 1),
         },
+        "present_ms_per_frame": {
+            key.removesuffix("_ticks"): front.get(key, 0)
+            * 1000.0
+            / frequency
+            / max(frames, 1)
+            for key in (
+                "adaptive_ticks",
+                "upload_ticks",
+                "draw_ticks",
+                "swap_ticks",
+            )
+        },
         "gpu2d_ms_per_frame": {
             key.removesuffix("_ns"): value / max(frames, 1) / 1.0e6
             for key, value in profile["gpu2d"].items()
@@ -437,6 +449,8 @@ def run_repetition(
     threaded: bool,
     scan_black_bands: bool,
     adaptive_screenshots: bool,
+    screen_layout: str,
+    adaptive_widescreen: str,
     stop_after_phase: str | None,
 ) -> dict[str, Any]:
     mode = "profiled" if profiled else "plain"
@@ -450,9 +464,12 @@ def run_repetition(
         threaded,
         output_dir / f"{stem}.stdout.log",
         output_dir / f"{stem}.stderr.log",
-        ("--adaptive-widescreen", "top")
-        if adaptive_screenshots
-        else (),
+        (
+            "--screen-layout",
+            screen_layout,
+            "--adaptive-widescreen",
+            adaptive_widescreen,
+        ),
     )
     client: DebugClient | None = None
     try:
@@ -596,7 +613,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--adaptive-screenshots",
         action="store_true",
-        help="request the runner's top adaptive surface for screenshots",
+        help="force the top adaptive surface for screenshots",
+    )
+    parser.add_argument(
+        "--screen-layout",
+        choices=("stacked", "separate"),
+        default="stacked",
+        help="host presentation layout to measure (default: stacked)",
+    )
+    parser.add_argument(
+        "--adaptive-widescreen",
+        choices=("none", "top"),
+        default="none",
+        help="adaptive surface to measure (default: none)",
     )
     parser.add_argument(
         "--stop-after-phase",
@@ -655,6 +684,8 @@ def main() -> int:
             "renderer": "soft",
             "gpu3d_threaded": bool(args.threaded),
             "deep_trace": False,
+            "screen_layout": args.screen_layout,
+            "adaptive_widescreen": args.adaptive_widescreen,
         },
         "host": {
             "platform": platform.platform(),
@@ -677,7 +708,10 @@ def main() -> int:
                 args.screenshots,
                 bool(args.threaded),
                 args.scan_black_bands,
-                args.adaptive_screenshots,
+                args.adaptive_screenshots
+                or args.adaptive_widescreen == "top",
+                args.screen_layout,
+                args.adaptive_widescreen,
                 args.stop_after_phase,
             )
             report["runs"].append(run)

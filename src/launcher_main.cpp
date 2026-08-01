@@ -27,7 +27,7 @@ constexpr char kKnownSha1[] =
     "1367529f2cb23e76ef295cb1727333ae8f0a6cd7";
 
 struct ModState {
-    bool adaptive_widescreen = false;
+    bool adaptive_widescreen = true;
     fs::path state_path;
     std::string error;
 };
@@ -191,6 +191,7 @@ int main(int argc, char** argv) {
     settings.player_src[0] = 2;
     settings.supersampling = 1;
     settings.antialiasing = 0;
+    settings.display_layout = 1;
 
     static const char* const sha1[] = { kKnownSha1 };
     static const char* const display_layouts[] = {
