@@ -337,11 +337,14 @@ def measure_to_insn9(
     requested_insn9: int,
     screenshot_path: pathlib.Path | None = None,
     adaptive_screenshot: bool = False,
+    timeout_seconds: float = 180.0,
 ) -> dict[str, Any]:
     before_counts = client.event_counts()
     before_front = live_stats(client)
     before_profile = profile_snapshot(client)
-    end_counts = wait_until_insn9(client, target_insn9)
+    end_counts = wait_until_insn9(
+        client, target_insn9, timeout_seconds
+    )
     after_front = live_stats(client)
     after_profile = profile_snapshot(client)
     result = summarize_window(
@@ -488,6 +491,7 @@ def run_repetition(
     adaptive_screenshots: bool,
     screen_layout: str,
     adaptive_widescreen: str,
+    insn_timeout_seconds: float,
     stop_after_phase: str | None,
 ) -> dict[str, Any]:
     mode = "profiled" if profiled else "plain"
@@ -572,6 +576,7 @@ def run_repetition(
                     cumulative_target - previous_target,
                     screenshot_path,
                     adaptive_screenshots,
+                    insn_timeout_seconds,
                 )
             )
             previous_target = cumulative_target
@@ -604,6 +609,14 @@ def run_repetition(
         }
         if black_band_capture is not None:
             result["black_band_capture"] = black_band_capture
+        try:
+            exit_response = client.cmd("frontend_exit")
+            if exit_response.get("requested"):
+                process.wait(timeout=30.0)
+        except (ConnectionError, RuntimeError, subprocess.TimeoutExpired):
+            # Older comparison binaries do not expose frontend_exit. Preserve
+            # the established terminate fallback for them.
+            pass
         return result
     finally:
         if client is not None:
@@ -706,6 +719,15 @@ def parse_args() -> argparse.Namespace:
         help="adaptive surface to measure (default: none)",
     )
     parser.add_argument(
+        "--insn-timeout",
+        type=float,
+        default=180.0,
+        help=(
+            "seconds allowed for each instruction-counted phase "
+            "(default: 180; increase for instrumented training)"
+        ),
+    )
+    parser.add_argument(
         "--stop-after-phase",
         choices=[
             label
@@ -729,6 +751,8 @@ def main() -> int:
             raise FileNotFoundError(required)
     if args.repetitions < 1:
         raise ValueError("--repetitions must be positive")
+    if args.insn_timeout <= 0:
+        raise ValueError("--insn-timeout must be positive")
 
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     mode = "profiled" if args.profile else "plain"
@@ -763,6 +787,7 @@ def main() -> int:
                 {"label": label, "cumulative_insn9": insn9}
                 for label, insn9 in insn_phases
             ],
+            "insn_timeout_seconds": args.insn_timeout,
             "inputs": scenario_inputs,
         },
         "build": {
@@ -812,6 +837,7 @@ def main() -> int:
                 or args.adaptive_widescreen == "top",
                 args.screen_layout,
                 args.adaptive_widescreen,
+                args.insn_timeout,
                 args.stop_after_phase,
             )
             report["runs"].append(run)
