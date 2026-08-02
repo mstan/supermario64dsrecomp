@@ -135,7 +135,7 @@ std::wstring quote(const fs::path& value) {
 }
 
 bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
-                   int supersampling, int antialiasing) {
+                   int renderer, int supersampling, int antialiasing) {
     const fs::path runner = fs::path(SM64DS_RUNNER_EXE);
     const fs::path bios = fs::path(SM64DS_BIOS_DIR);
     const fs::path source = fs::path(SM64DS_SOURCE_DIR);
@@ -161,6 +161,23 @@ bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
     const std::wstring path =
         L"C:\\msys64\\mingw64\\bin;" + std::wstring(old_path);
     SetEnvironmentVariableW(L"PATH", path.c_str());
+    static constexpr const wchar_t* kRendererPolicies[] = {
+        L"auto", L"soft", L"compute",
+    };
+    const int renderer_index =
+        renderer >= 0 && renderer < static_cast<int>(
+            std::size(kRendererPolicies)) ? renderer : 0;
+    const DWORD old_renderer_size =
+        GetEnvironmentVariableW(L"NDS_3D_RENDERER", nullptr, 0);
+    std::wstring old_renderer;
+    if (old_renderer_size != 0) {
+        old_renderer.resize(old_renderer_size);
+        GetEnvironmentVariableW(L"NDS_3D_RENDERER",
+                                old_renderer.data(), old_renderer_size);
+        old_renderer.resize(old_renderer_size - 1u);
+    }
+    SetEnvironmentVariableW(
+        L"NDS_3D_RENDERER", kRendererPolicies[renderer_index]);
 
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
@@ -169,6 +186,9 @@ bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
         runner.wstring().c_str(), command.data(), nullptr, nullptr, FALSE,
         CREATE_NO_WINDOW, nullptr, source.wstring().c_str(),
         &startup, &process);
+    SetEnvironmentVariableW(
+        L"NDS_3D_RENDERER",
+        old_renderer_size != 0 ? old_renderer.c_str() : nullptr);
     if (!ok) {
         std::fprintf(stderr, "CreateProcessW failed: %lu\n",
                      static_cast<unsigned long>(GetLastError()));
@@ -192,11 +212,17 @@ int main(int argc, char** argv) {
     settings.supersampling = 1;
     settings.antialiasing = 0;
     settings.display_layout = 1;
+    settings.renderer = 0;
 
     static const char* const sha1[] = { kKnownSha1 };
     static const char* const display_layouts[] = {
         "Stacked window",
         "Separate windows",
+    };
+    static const char* const renderers[] = {
+        "Automatic (OpenGL preferred)",
+        "Software",
+        "OpenGL 4.3",
     };
 
     const fs::path exe_dir =
@@ -217,6 +243,9 @@ int main(int argc, char** argv) {
     game.hide_rebind = 0;
     game.display_layout_labels = display_layouts;
     game.num_display_layouts = std::size(display_layouts);
+    game.has_renderer = 1;
+    game.renderer_labels = renderers;
+    game.num_renderers = std::size(renderers);
     game.mods = &mod_provider;
 
     const fs::path default_rom =
@@ -233,6 +262,7 @@ int main(int argc, char** argv) {
     }
     return launch_runner(selected_rom, settings.display_layout,
                          mod_state.adaptive_widescreen,
+                         settings.renderer,
                          settings.supersampling,
                          settings.antialiasing)
         ? 0 : 3;

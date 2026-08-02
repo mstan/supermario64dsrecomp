@@ -39,7 +39,7 @@ size = 0x00024b24
 
 [framework]
 path = "ndsrecomp"
-pin = "552f3a2f322e575f6d344ca301cec916f2b3d299"
+pin = "dd27de97697fe28dfb0efa99b2739f99772194b7"
 
 [decomp]
 url = "https://github.com/tangosdev/sm64ds-decomp.git"

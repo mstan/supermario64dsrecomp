@@ -274,8 +274,35 @@ def summarize_window(
         "gpu2d_ms_per_frame": {
             key.removesuffix("_ns"): value / max(frames, 1) / 1.0e6
             for key, value in profile["gpu2d"].items()
-            if key.endswith("_ns")
+            if key.endswith("_ns") and isinstance(value, (int, float))
         },
+        "gpu2d_direct_class_frames": profile["gpu2d"].get(
+            "direct_class_frames", {}
+        ),
+        "gpu2d_direct_class_engine_a_ms_per_frame": {
+            key: value / max(frames, 1) / 1.0e6
+            for key, value in profile["gpu2d"].get(
+                "direct_class_engine_a_ns", {}
+            ).items()
+        },
+        "gpu2d_direct_extra_bg_mask_frames": profile["gpu2d"].get(
+            "direct_extra_bg_mask_frames", {}
+        ),
+        "gpu2d_direct_extra_bg_mask_engine_a_ms_per_frame": {
+            key: value / max(frames, 1) / 1.0e6
+            for key, value in profile["gpu2d"].get(
+                "direct_extra_bg_mask_engine_a_ns", {}
+            ).items()
+        },
+        "gpu2d_direct_extra_bg_mode_frames": profile["gpu2d"].get(
+            "direct_extra_bg_mode_frames", {}
+        ),
+        "gpu2d_direct_extra_effect_frames": profile["gpu2d"].get(
+            "direct_extra_effect_frames", {}
+        ),
+        "gpu2d_direct_extra_master_bright_frames": profile["gpu2d"].get(
+            "direct_extra_master_bright_frames", {}
+        ),
         "gpu3d_ms_per_frame": {
             key.removesuffix("_ns"): value / max(frames, 1) / 1.0e6
             for key, value in profile["gpu3d"].items()
@@ -395,10 +422,10 @@ def launch_runtime(
     # This traversal intentionally measures the firmware menu. Keep it stable
     # when the title's normal game.toml opts into retail Automatic boot.
     environment["NDS_STARTUP_MODE"] = startup_mode
-    if renderer == "compute":
-        environment["NDS_3D_RENDERER"] = "compute"
-    else:
+    if renderer == "auto":
         environment.pop("NDS_3D_RENDERER", None)
+    else:
+        environment["NDS_3D_RENDERER"] = renderer
     environment["NDS_COMPUTE_READBACK_OVERLAP"] = (
         "1" if compute_readback_overlap else "0"
     )
@@ -667,25 +694,25 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--renderer",
-        choices=("soft", "compute"),
-        default="soft",
-        help="select the 3D renderer (default: soft)",
+        choices=("auto", "soft", "compute"),
+        default="auto",
+        help="select the 3D renderer (default: auto, OpenGL preferred)",
     )
     parser.add_argument(
         "--compute-readback-overlap",
         type=int,
         choices=(0, 1),
-        default=0,
-        help="overlap compute PBO submission with late VBlank (default: 0)",
+        default=1,
+        help="overlap compute PBO submission with late VBlank (default: 1)",
     )
     parser.add_argument(
         "--compute-direct-present",
         type=int,
         choices=(0, 1),
-        default=0,
+        default=1,
         help=(
             "present supported adaptive gameplay directly from OpenGL and "
-            "skip its CPU readback (default: 0)"
+            "skip its CPU readback (default: 1)"
         ),
     )
     parser.add_argument(

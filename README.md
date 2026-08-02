@@ -96,6 +96,12 @@ bottom/both requests fail closed. The castle skybox remains a known
 limitation: some widened camera angles expose black voids or stretched
 peripheral sky. A future model-aware or decomp-side skybox patch is required.
 
+Rendering defaults to Automatic, which prefers the OpenGL 4.3 compute backend
+and uses its direct GPU-resident top-window path where supported. The launcher
+also exposes explicit Software and OpenGL 4.3 choices. Automatic mode falls
+back to the faithful threaded software renderer if OpenGL cannot initialize;
+an explicitly selected OpenGL backend fails loudly instead.
+
 The tested local target passes the firmware menu, launches both game CPUs,
 renders the Nintendo splash, accepts the game's `TOUCH TO START` input, and
 reaches castle-grounds gameplay without a terminal dispatch miss or CPU stall.
