@@ -9,6 +9,7 @@
 # Build trees and local selection state.
 /build/
 /build-*/
+/release-stage/
 /perf-results/
 /saves/
 *.sav

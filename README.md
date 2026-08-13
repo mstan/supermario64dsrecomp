@@ -1,16 +1,58 @@
 # SuperMario64DSRecomp
 
-Pre-alpha Super Mario 64 DS static-recompilation target. It recompiles and
+> Super Mario 64 DS Recomp `0.0.1` is an in-development public preview.
+> Bugs are expected. This is not a finished port, a general Nintendo DS
+> emulator, or a compatibility promise for every course, cutscene, overlay, or
+> save-path edge case.
+
+Early Super Mario 64 DS static-recompilation target for
+[ndsrecomp](https://github.com/mstan/ndsrecomp). It recompiles and
 host-compiles the European game's ARM9 and ARM7 code banks, boots through the
-authentic BIOS/firmware cartridge path, and reaches controllable gameplay.
+authentic BIOS/firmware/cartridge path, and reaches controllable castle-grounds
+gameplay with adaptive top-screen 21:9 presentation.
 
-The shared Nintendo DS framework is pinned as the `ndsrecomp` Git submodule.
-The ROM, extracted images, generated recompilation output, and optional
-third-party checkout are all local ignored inputs.
+No Nintendo ROM, BIOS, firmware, save data, extracted image, generated C
+source, raw capture, or generated bank belongs in Git or release artifacts.
+The local ROM and generated outputs are intentionally ignored.
 
-## Verified local target
+## Current Status
 
-The scaffold is pinned to the European revision-0 retail build used by the
+Version `0.0.1` is the first public Windows development preview for the exact
+European revision-0 ROM identified below. The Windows ZIP contains the
+ROM-free recomp-ui launcher, exact-ROM title runner, launcher assets,
+configuration, documentation, and required runtime libraries.
+
+The game is playable enough to demonstrate castle-grounds control and the
+adaptive top-screen renderer. Known issues remain, including rough performance
+in fallback-heavy areas, incomplete title coverage outside validated routes,
+and visible 21:9 edge artifacts in some camera angles. File A is the current
+fast path into gameplay for local testing.
+
+## Quick Start
+
+1. Download and fully extract
+   `SuperMario64DSRecomp-windows-x64-v0.0.1.zip` from
+   [Releases](../../releases).
+2. Copy your own verified `biosnds9.rom`, `biosnds7.rom`, and `firmware.bin`
+   dumps into the extracted `bios` folder. `bios/README.txt` lists the exact
+   sizes and hashes.
+3. Run `SuperMario64DSRecomp.exe` and select your legally obtained European
+   revision-0 `Super Mario 64 DS.nds` ROM when prompted.
+
+The launcher remembers the ROM selection. The runner independently verifies
+the ROM, both BIOS images, and firmware before executing any title bank.
+
+## Showcase
+
+![Super Mario 64 DS running with the top screen widened to 21:9](docs/showcase/sm64ds-adaptive-21x9.webp)
+
+The Adaptive Widescreen mod renders the upper 3D screen as a 448x192 21:9
+surface while the lower touchscreen stays native and clickable in its own
+window.
+
+## Verified Cartridge
+
+The project is pinned to the European revision-0 retail build used by the
 online decomp:
 
 | field | value |
@@ -18,33 +60,32 @@ online decomp:
 | file | `Super Mario 64 DS.nds` (Git-ignored) |
 | title | `S.MARIO64DS` |
 | game code | `ASMP` |
+| revision | 0 |
 | size | 16 MiB |
 | SHA-1 | `1367529f2cb23e76ef295cb1727333ae8f0a6cd7` |
 | SHA-256 | `ce5829aaa79f06c67140ed1f45cbca738b0a9d0180538c8c1498472d859db032` |
 
-Never commit the ROM, archive artwork/NFO files, extracted binaries, generated
-code, screenshots, or other Nintendo material.
-
-## Decomp-assisted recompilation
+## Decomp-Assisted Recompilation
 
 [`tangosdev/sm64ds-decomp`](https://github.com/tangosdev/sm64ds-decomp) is
 pinned in `sm64ds-decomp.pin`. Its original MIT-licensed work supplies exact
-European ARM9 function names, modes, sizes, and module boundaries. The scaffold
-uses that metadata; it does not compile the decomp's matched C or copy it here.
+European ARM9 function names, modes, sizes, and module boundaries. This
+project uses that metadata; it does not compile the decomp's matched C or copy
+it here.
 
 `tools/prepare_sm64ds.py` verifies the local ROM, decompresses its ARM9 image,
-and generates ignored ndsrecomp configs. The current build then:
+and generates ignored ndsrecomp configs. The build then:
 
-- recompiles all 3,090 decomp-defined functions in the ARM9 main module;
-- emits that bank with live-byte validation, because the game decompresses its
-  ARM9 image in place at startup;
-- discovers and recompiles the initial 14-function ARM7 boot closure;
-- compiles the generated C banks into `libsm64ds_recompiled_banks.a`.
+- recompiles all decomp-defined ARM9 main-module functions;
+- discovers and recompiles the initial ARM7 boot closure;
+- optionally compiles captured, content-validated ARM7 and ARM9 runtime-RAM
+  banks when the ignored local capture images exist;
+- links those banks into the ROM-gated `nds_runner.exe`.
 
-The ROM-derived outputs live under ignored `generated/` and are never suitable
-for source control or release artifacts.
+Every ROM-derived output lives under ignored `generated/` and is never
+suitable for source control or release artifacts.
 
-## Local setup and build
+## Setup and Build
 
 Initialize the framework submodule and pinned decomp checkout, then install
 `ndspy` in the checkout's local virtual environment:
@@ -57,24 +98,53 @@ py -3.12 -m venv third_party/sm64ds-decomp/.venv
 third_party/sm64ds-decomp/.venv/Scripts/python.exe -m pip install ndspy
 ```
 
-Place your own verified European dump at `Super Mario 64 DS.nds`, then build:
+Place the verified ROM at `Super Mario 64 DS.nds`, then configure and build:
 
 ```powershell
 cmake -G Ninja -S . -B build
 cmake --build build --target supermario64dsrecomp
 ```
 
-The build graph verifies and prepares the ROM, builds ndsrecomp, emits both
-game banks, compiles them, and builds the selector. To inspect the current
-boundary:
+To run through the shared title runner:
 
 ```powershell
-./build/SuperMario64DSRecomp --select sm64ds --rom "Super Mario 64 DS.nds"
+cmake -G Ninja -S ndsrecomp/runner -B ndsrecomp/runner/build-sm64-native `
+  -DNDS_BOOTSTRAP_FIRMWARE=ON `
+  -DNDS_TITLE_BANK_DIR="$PWD/generated/recomp" `
+  -DNDS_TITLE_ROM_SHA1=1367529f2cb23e76ef295cb1727333ae8f0a6cd7
+cmake --build ndsrecomp/runner/build-sm64-native -j 12
+
+ndsrecomp/runner/build-sm64-native/nds_runner.exe ndsrecomp/bios `
+  --interactive --rom "Super Mario 64 DS.nds" --config game.toml `
+  --screen-layout separate --adaptive-widescreen top
 ```
 
-## Current boot boundary
+## Release Packaging
 
-The fake direct-boot shortcut remains deliberately unused. ndsrecomp now models
+The supported Windows release path builds the ROM-free runner and launcher,
+then packages the portable ZIP:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
+  tools\build-windows.ps1 -Version 0.0.1
+```
+
+On Linux, build the runner-first AppImage from source:
+
+```bash
+bash tools/build-linux.sh --version 0.0.1
+```
+
+The packagers validate the CMake version and framework pin, refuse a runner
+without the SM64DS title banks, stage only explicit safe payloads, and reject
+unsafe names or ROM/save/BIOS/firmware/generated material. The Linux AppImage
+starts `nds_runner` directly because the current title launcher is
+Windows-only; place the `.nds` ROM and a `bios/` folder containing your
+verified DS dumps beside the AppImage.
+
+## Current Boot Boundary
+
+The fake direct-boot shortcut remains deliberately unused. ndsrecomp models
 the physical-card command path used by the firmware, including chip identity,
 ROM streaming, DMA, KEY1 commands, and normalization of already-decrypted ROM
 secure areas before the BIOS decrypts them.
@@ -84,23 +154,10 @@ so an inserted SM64DS cartridge launches without a host-simulated menu click.
 This only changes the redundant user-setting copies and their CRCs in memory;
 use `--startup-mode manual` when testing the DS menu itself.
 
-SM64DS defaults to separate top/bottom windows and enables its adaptive
-top-screen mod on first launch, producing a surface up to 448x192 (21:9).
-The display setting and mod can still be disabled independently. Direct runner
-launches can request the same target with `--screen-layout separate
---adaptive-widescreen top`. The bottom screen stays native and clickable in
-its own window. World geometry uses the wider horizontal field of view;
-left/right HUD sprites follow the new corners while center overlays stay
-centered. The exact European ROM is capability-gated, and unsupported
-bottom/both requests fail closed. The castle skybox remains a known
-limitation: some widened camera angles expose black voids or stretched
-peripheral sky. A future model-aware or decomp-side skybox patch is required.
-
 Rendering defaults to Automatic, which prefers the OpenGL 4.3 compute backend
-and uses its direct GPU-resident top-window path where supported. The launcher
-also exposes explicit Software and OpenGL 4.3 choices. Automatic mode falls
-back to the faithful threaded software renderer if OpenGL cannot initialize;
-an explicitly selected OpenGL backend fails loudly instead.
+and uses its direct GPU-resident top-window path where supported. Automatic
+mode falls back to the faithful threaded software renderer if OpenGL cannot
+initialize; an explicitly selected OpenGL backend fails loudly instead.
 
 The tested local target passes the firmware menu, launches both game CPUs,
 renders the Nintendo splash, accepts the game's `TOUCH TO START` input, and
@@ -108,17 +165,16 @@ reaches castle-grounds gameplay without a terminal dispatch miss or CPU stall.
 The lower-screen renderer includes text, affine, and extended tiled/bitmap
 backgrounds, including SM64DS's courtyard minimap and its extended palette.
 
-For local iteration, use File A as the established fast path into gameplay and
-leave File B new when the opening cutscene is useful. The launcher persists
-the cartridge's 8 KiB EEPROM at `saves/sm64ds_europe.sav`, using atomic host
-file replacement after completed guest write transactions and again at clean
-exit. The automated parity and performance scenarios pass `--no-save`, start
-from blank EEPROM, and drive File A's new-game route so measurements remain
-deterministic. Raw save states remain deferred while the runtime and device
-model are changing.
+The castle skybox remains a known 21:9 limitation: some widened camera angles
+can expose black voids or stretched peripheral sky. Future model-aware or
+decomp-side work is required for a complete visual fix.
+
+## Copyright and Licensing
 
 The original code in this scaffold is released under the MIT License; see
 [`LICENSE`](LICENSE). This grant covers only this repository's own source. The
-`ndsrecomp` submodule, upstream references, and any optional third-party
-checkout retain their respective terms and are not relicensed by it. The game
-ROM and derived images are copyrighted material and are never included.
+`ndsrecomp` submodule, upstream references, and optional third-party checkout
+retain their respective terms and are not relicensed by it. Curated
+screenshots may be included to show current behavior; the game ROM, BIOS,
+firmware, saves, generated code, raw captures, and dumped game material are
+not distributed.
