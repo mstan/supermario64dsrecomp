@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(SuperMario64DSRecomp VERSION 0.0.2 LANGUAGES C CXX)
+project(SuperMario64DSRecomp VERSION 0.0.3 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -327,9 +327,6 @@ endif()
 # physical stacked/separate windows and presentation quality remain ordinary
 # Display settings.
 option(SM64DS_BUILD_LAUNCHER "Build the SM64DS recomp-ui launcher" ON)
-set(SM64DS_RUNNER_EXE
-    "${NDSRECOMP_ROOT}/runner/build-sm64-native/nds_runner.exe"
-    CACHE FILEPATH "Path to the native nds_runner executable")
 if(SM64DS_BUILD_LAUNCHER AND WIN32)
     set(SM64DS_RECOMP_UI_ROOT
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/recomp-ui"
@@ -342,10 +339,6 @@ if(SM64DS_BUILD_LAUNCHER AND WIN32)
     find_package(SDL2 CONFIG REQUIRED)
     add_executable(sm64ds_launcher src/launcher_main.cpp)
     target_link_libraries(sm64ds_launcher PRIVATE SDL2::SDL2)
-    target_compile_definitions(sm64ds_launcher PRIVATE
-        SM64DS_RUNNER_EXE="${SM64DS_RUNNER_EXE}"
-        SM64DS_BIOS_DIR="${NDSRECOMP_ROOT}/bios"
-        SM64DS_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     set(RECOMP_UI_ROOT "${SM64DS_RECOMP_UI_ROOT}")
     set(RECOMP_UI_SDL3 OFF CACHE BOOL "" FORCE)
     set(RECOMP_UI_ENABLE_MODS ON CACHE BOOL "" FORCE)

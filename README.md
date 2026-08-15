@@ -1,6 +1,6 @@
 # SuperMario64DSRecomp
 
-> Super Mario 64 DS Recomp `0.0.2` is an in-development public preview.
+> Super Mario 64 DS Recomp `0.0.3` is an in-development public preview.
 > Bugs are expected. This is not a finished port, a general Nintendo DS
 > emulator, or a compatibility promise for every course, cutscene, overlay, or
 > save-path edge case.
@@ -17,7 +17,7 @@ The local ROM and generated outputs are intentionally ignored.
 
 ## Current Status
 
-Version `0.0.2` is a public Windows development preview for the exact
+Version `0.0.3` is a public Windows development preview for the exact
 European revision-0 ROM identified below. The Windows ZIP contains the
 ROM-free recomp-ui launcher, exact-ROM title runner, launcher assets,
 configuration, documentation, and required runtime libraries.
@@ -31,16 +31,16 @@ fast path into gameplay for local testing.
 ## Quick Start
 
 1. Download and fully extract
-   `SuperMario64DSRecomp-windows-x64-v0.0.2.zip` from
+   `SuperMario64DSRecomp-windows-x64-v0.0.3.zip` from
    [Releases](../../releases).
-2. Copy your own verified `biosnds9.rom`, `biosnds7.rom`, and `firmware.bin`
-   dumps into the extracted `bios` folder. `bios/README.txt` lists the exact
-   sizes and hashes.
-3. Run `SuperMario64DSRecomp.exe` and select your legally obtained European
-   revision-0 `Super Mario 64 DS.nds` ROM when prompted.
+2. Put your legally obtained European revision-0 `Super Mario 64 DS.nds` ROM
+   next to `SuperMario64DSRecomp.exe`, or select it when prompted.
+3. Run `SuperMario64DSRecomp.exe`.
 
 The launcher remembers the ROM selection. The runner independently verifies
-the ROM, both BIOS images, and firmware before executing any title bank.
+the ROM before executing any title bank. Retail BIOS and firmware dumps are
+optional: if all three are present in `bios`, the launcher uses them; otherwise
+it falls back to bundled FreeBIOS code banks and generated firmware.
 
 ## Showcase
 
@@ -126,13 +126,13 @@ then packages the portable ZIP:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-  tools\build-windows.ps1 -Version 0.0.2
+  tools\build-windows.ps1 -Version 0.0.3
 ```
 
 On Linux, build the runner-first AppImage from source:
 
 ```bash
-bash tools/build-linux.sh --version 0.0.2
+bash tools/build-linux.sh --version 0.0.3
 ```
 
 The packagers validate the CMake version and framework pin, refuse a runner

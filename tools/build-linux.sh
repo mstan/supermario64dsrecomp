@@ -2,15 +2,16 @@
 # Build a Super Mario 64 DS Recomp Linux x86_64 AppImage.
 #
 # The current recomp-ui launcher is Windows-only, so this packages the title
-# runner directly. Put a legally dumped Super Mario 64 DS .nds and a bios/
-# folder beside the AppImage; AppRun auto-detects the ROM.
+# runner directly. Put a legally dumped Super Mario 64 DS .nds beside the
+# AppImage; AppRun auto-detects the ROM and falls back to FreeBIOS +
+# generated firmware when no retail BIOS folder exists.
 set -euo pipefail
 
 APP_NAME="SuperMario64DSRecomp"
 TITLE_TARGET="supermario64dsrecomp"
 ROM_SHA1="1367529f2cb23e76ef295cb1727333ae8f0a6cd7"
 RUNNER_NAME="nds_runner"
-VERSION="0.0.1"
+VERSION="0.0.3"
 JOBS="$(nproc 2>/dev/null || echo 4)"
 DO_PACKAGE=1
 
@@ -44,6 +45,12 @@ test -f "$REPO/Super Mario 64 DS.nds" || {
   echo "ERROR: verified Super Mario 64 DS ROM is missing from the repo root." >&2
   exit 1
 }
+FREEBIOS9="$REPO/ndsrecomp/third_party/freebios/drastic_bios_arm9.bin"
+FREEBIOS7="$REPO/ndsrecomp/third_party/freebios/drastic_bios_arm7.bin"
+test -f "$FREEBIOS9" && test -f "$FREEBIOS7" || {
+  echo "ERROR: FreeBIOS submodule is missing. Run: git -C ndsrecomp submodule update --init third_party/freebios" >&2
+  exit 1
+}
 
 echo "[1/4] configure title banks"
 cmake -S "$REPO" -B "$GAME_BUILD" -G "Unix Makefiles" \
@@ -66,6 +73,16 @@ mkdir -p "$FRAMEWORK_GENERATED"
   --bin "$REPO/ndsrecomp/bios/biosnds7.rom" \
   --out "$FRAMEWORK_GENERATED" \
   --bank arm7_bios
+"$RECOMPILER" \
+  --config "$REPO/ndsrecomp/bios/freebios9.toml" \
+  --bin "$FREEBIOS9" \
+  --out "$FRAMEWORK_GENERATED" \
+  --bank freebios_arm9
+"$RECOMPILER" \
+  --config "$REPO/ndsrecomp/bios/freebios7.toml" \
+  --bin "$FREEBIOS7" \
+  --out "$FRAMEWORK_GENERATED" \
+  --bank freebios_arm7
 
 echo "[3/4] configure runner"
 cmake -S "$REPO/ndsrecomp/runner" -B "$RUNNER_BUILD" -G "Unix Makefiles" \
@@ -161,12 +178,22 @@ ROM=""
 for f in "$RUNDIR"/*.nds "$RUNDIR"/*.NDS; do
   [ -e "$f" ] && ROM="$f" && break
 done
+MODE=""
+if [ ! -f "$RUNDIR/bios/biosnds9.rom" ] || [ ! -f "$RUNDIR/bios/biosnds7.rom" ] || \
+   [ ! -f "$RUNDIR/bios/firmware.bin" ]; then
+  MODE="--freebios --generated-firmware --boot direct"
+fi
 cd "$RUNDIR" 2>/dev/null || true
 if [ "$#" -eq 0 ]; then
   if [ -n "$ROM" ]; then
-    exec "$HERE/usr/bin/nds_runner" "$RUNDIR/bios" --interactive --rom "$ROM" --config "$HERE/usr/bin/game.toml" --screen-layout separate --adaptive-widescreen top --startup-mode automatic
+    exec "$HERE/usr/bin/nds_runner" "$RUNDIR/bios" --interactive \
+      --rom "$ROM" --config "$HERE/usr/bin/game.toml" \
+      --screen-layout separate --adaptive-widescreen top \
+      --startup-mode automatic $MODE
   fi
-  exec "$HERE/usr/bin/nds_runner" "$RUNDIR/bios" --interactive --config "$HERE/usr/bin/game.toml" --screen-layout separate --adaptive-widescreen top --startup-mode automatic
+  exec "$HERE/usr/bin/nds_runner" "$RUNDIR/bios" --interactive \
+    --config "$HERE/usr/bin/game.toml" --screen-layout separate \
+    --adaptive-widescreen top --startup-mode automatic $MODE
 fi
 exec "$HERE/usr/bin/nds_runner" "$@"
 EOF

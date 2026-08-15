@@ -7,10 +7,10 @@ portable ZIP with tools\make_release.ps1.
 
 Usage:
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-    tools\build-windows.ps1 -Version 0.0.2
+    tools\build-windows.ps1 -Version 0.0.3
 #>
 param(
-  [string]$Version = '0.0.2',
+  [string]$Version = '0.0.3',
   [string]$CMake = 'C:\msys64\mingw64\bin\cmake.exe',
   [string]$Generator = 'Ninja',
   [int]$Jobs = 12,
@@ -36,7 +36,7 @@ try {
   & $cmakePath -G $Generator -S $root -B $build `
     -DCMAKE_BUILD_TYPE=Release `
     -DNDSRECOMP_ROOT="$root\ndsrecomp" `
-    "-DSM64DS_RUNNER_EXE=$runnerBuild\nds_runner.exe"
+    -DSM64DS_BUILD_LAUNCHER=ON
   if ($LASTEXITCODE -ne 0) { throw 'Game CMake configure failed.' }
   & $cmakePath --build $build --target supermario64dsrecomp -j $Jobs
   if ($LASTEXITCODE -ne 0) { throw 'Game bank build failed.' }

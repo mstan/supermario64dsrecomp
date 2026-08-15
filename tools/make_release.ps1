@@ -9,7 +9,7 @@ staged.
 Build the runner and launcher first, then run:
 
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-    tools\make_release.ps1 -Version 0.0.2
+    tools\make_release.ps1 -Version 0.0.3
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Version,
@@ -32,8 +32,8 @@ foreach ($required in @($runner, $launcher, $assets)) {
   }
 }
 
-if ($Version -ne '0.0.2') {
-  throw "This source tree is the 0.0.2 release; refusing version $Version."
+if ($Version -ne '0.0.3') {
+  throw "This source tree is the 0.0.3 release; refusing version $Version."
 }
 $projectText = Get-Content (Join-Path $root 'CMakeLists.txt') -Raw
 if ($projectText -notmatch
@@ -69,9 +69,13 @@ foreach ($bank in @(
 }
 $launcherText =
   [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($launcher))
+$launcherWideText =
+  [Text.Encoding]::Unicode.GetString([IO.File]::ReadAllBytes($launcher))
 if (-not $launcherText.Contains('Super Mario 64 DS - Launcher') -or
-    -not $launcherText.Contains('SM64DS Adaptive Widescreen')) {
-  throw 'Launcher does not contain the expected SM64DS feature identity.'
+    -not $launcherText.Contains('SM64DS Adaptive Widescreen') -or
+    (-not $launcherText.Contains('--freebios') -and
+     -not $launcherWideText.Contains('--freebios'))) {
+  throw 'Launcher does not contain the expected SM64DS no-dump release identity.'
 }
 
 $out = Join-Path $root 'release-stage'

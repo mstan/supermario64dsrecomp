@@ -10,16 +10,6 @@
 #include <fstream>
 #include <string>
 
-#ifndef SM64DS_RUNNER_EXE
-#error "SM64DS_RUNNER_EXE must name the nds_runner executable"
-#endif
-#ifndef SM64DS_BIOS_DIR
-#error "SM64DS_BIOS_DIR must name the firmware/BIOS directory"
-#endif
-#ifndef SM64DS_SOURCE_DIR
-#error "SM64DS_SOURCE_DIR must name the game repository"
-#endif
-
 namespace {
 namespace fs = std::filesystem;
 
@@ -134,13 +124,35 @@ std::wstring quote(const fs::path& value) {
     return L"\"" + value.wstring() + L"\"";
 }
 
-bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
-                   int renderer, int supersampling, int antialiasing) {
-    const fs::path runner = fs::path(SM64DS_RUNNER_EXE);
-    const fs::path bios = fs::path(SM64DS_BIOS_DIR);
-    const fs::path source = fs::path(SM64DS_SOURCE_DIR);
-    const fs::path config = source / "game.toml";
-    const fs::path save = source / "saves" / "sm64ds_europe.sav";
+bool launch_runner(const fs::path& game_dir, const fs::path& rom,
+                   int display_layout, bool adaptive, int renderer,
+                   int supersampling, int antialiasing) {
+    const fs::path runner = game_dir / "nds_runner.exe";
+    const fs::path bios = game_dir / "bios";
+    const fs::path config = game_dir / "game.toml";
+    const fs::path save = game_dir / "saves" / "sm64ds_europe.sav";
+
+    if (!fs::is_regular_file(runner) || !fs::is_regular_file(config)) {
+        MessageBoxW(nullptr,
+            L"The release is incomplete: nds_runner.exe or game.toml is "
+            L"missing. Re-extract the full release ZIP.",
+            L"Super Mario 64 DS Recomp", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    const std::array<fs::path, 3> firmware_files{{
+        bios / "biosnds9.rom", bios / "biosnds7.rom", bios / "firmware.bin",
+    }};
+    bool no_dumps_mode = false;
+    for (const fs::path& file : firmware_files) {
+        if (fs::is_regular_file(file)) continue;
+        no_dumps_mode = true;
+        break;
+    }
+    if (no_dumps_mode) {
+        std::error_code error;
+        fs::create_directories(bios, error);
+    }
 
     std::wstring command =
         quote(runner) + L" " + quote(bios) +
@@ -154,6 +166,8 @@ bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
         L" --supersampling " + std::to_wstring(supersampling) +
         L" --antialiasing " + std::to_wstring(antialiasing) +
         L" --startup-mode automatic";
+    if (no_dumps_mode)
+        command += L" --freebios --generated-firmware --boot direct";
 
     wchar_t old_path[32768]{};
     GetEnvironmentVariableW(L"PATH", old_path,
@@ -184,7 +198,7 @@ bool launch_runner(const fs::path& rom, int display_layout, bool adaptive,
     PROCESS_INFORMATION process{};
     const BOOL ok = CreateProcessW(
         runner.wstring().c_str(), command.data(), nullptr, nullptr, FALSE,
-        CREATE_NO_WINDOW, nullptr, source.wstring().c_str(),
+        CREATE_NO_WINDOW, nullptr, game_dir.wstring().c_str(),
         &startup, &process);
     SetEnvironmentVariableW(
         L"NDS_3D_RENDERER",
@@ -248,8 +262,7 @@ int main(int argc, char** argv) {
     game.num_renderers = std::size(renderers);
     game.mods = &mod_provider;
 
-    const fs::path default_rom =
-        fs::path(SM64DS_SOURCE_DIR) / "Super Mario 64 DS.nds";
+    const fs::path default_rom = exe_dir / "Super Mario 64 DS.nds";
     char selected_rom[1024]{};
     const int result = recomp_launcher_run_window(
         "Super Mario 64 DS - Launcher", &settings, &game,
@@ -260,7 +273,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "recomp-ui unavailable\n");
         return 2;
     }
-    return launch_runner(selected_rom, settings.display_layout,
+    return launch_runner(exe_dir, selected_rom, settings.display_layout,
                          mod_state.adaptive_widescreen,
                          settings.renderer,
                          settings.supersampling,
