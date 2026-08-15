@@ -1,6 +1,6 @@
 # SuperMario64DSRecomp
 
-> Super Mario 64 DS Recomp `0.0.1` is an in-development public preview.
+> Super Mario 64 DS Recomp `0.0.2` is an in-development public preview.
 > Bugs are expected. This is not a finished port, a general Nintendo DS
 > emulator, or a compatibility promise for every course, cutscene, overlay, or
 > save-path edge case.
@@ -17,7 +17,7 @@ The local ROM and generated outputs are intentionally ignored.
 
 ## Current Status
 
-Version `0.0.1` is the first public Windows development preview for the exact
+Version `0.0.2` is a public Windows development preview for the exact
 European revision-0 ROM identified below. The Windows ZIP contains the
 ROM-free recomp-ui launcher, exact-ROM title runner, launcher assets,
 configuration, documentation, and required runtime libraries.
@@ -31,7 +31,7 @@ fast path into gameplay for local testing.
 ## Quick Start
 
 1. Download and fully extract
-   `SuperMario64DSRecomp-windows-x64-v0.0.1.zip` from
+   `SuperMario64DSRecomp-windows-x64-v0.0.2.zip` from
    [Releases](../../releases).
 2. Copy your own verified `biosnds9.rom`, `biosnds7.rom`, and `firmware.bin`
    dumps into the extracted `bios` folder. `bios/README.txt` lists the exact
@@ -126,13 +126,13 @@ then packages the portable ZIP:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-  tools\build-windows.ps1 -Version 0.0.1
+  tools\build-windows.ps1 -Version 0.0.2
 ```
 
 On Linux, build the runner-first AppImage from source:
 
 ```bash
-bash tools/build-linux.sh --version 0.0.1
+bash tools/build-linux.sh --version 0.0.2
 ```
 
 The packagers validate the CMake version and framework pin, refuse a runner

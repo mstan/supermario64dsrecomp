@@ -9,7 +9,7 @@ staged.
 Build the runner and launcher first, then run:
 
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-    tools\make_release.ps1 -Version 0.0.1
+    tools\make_release.ps1 -Version 0.0.2
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Version,
@@ -32,8 +32,8 @@ foreach ($required in @($runner, $launcher, $assets)) {
   }
 }
 
-if ($Version -ne '0.0.1') {
-  throw "This source tree is the 0.0.1 release; refusing version $Version."
+if ($Version -ne '0.0.2') {
+  throw "This source tree is the 0.0.2 release; refusing version $Version."
 }
 $projectText = Get-Content (Join-Path $root 'CMakeLists.txt') -Raw
 if ($projectText -notmatch
