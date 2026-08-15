@@ -43,6 +43,12 @@ try {
 
   $recompiler = Join-Path $build 'ndsrecomp-recompiler\nds_recompile.exe'
   $frameworkGenerated = Join-Path $root 'ndsrecomp\generated'
+  $freebios9 = Join-Path $root 'ndsrecomp\third_party\freebios\drastic_bios_arm9.bin'
+  $freebios7 = Join-Path $root 'ndsrecomp\third_party\freebios\drastic_bios_arm7.bin'
+  if (-not (Test-Path -LiteralPath $freebios9) -or
+      -not (Test-Path -LiteralPath $freebios7)) {
+    throw 'FreeBIOS submodule is missing. Run: git -C ndsrecomp submodule update --init third_party/freebios'
+  }
   New-Item -ItemType Directory -Path $frameworkGenerated -Force | Out-Null
   & $recompiler `
     --config "$root\ndsrecomp\bios\biosnds9.toml" `
@@ -56,6 +62,18 @@ try {
     --out $frameworkGenerated `
     --bank arm7_bios
   if ($LASTEXITCODE -ne 0) { throw 'ARM7 BIOS bank generation failed.' }
+  & $recompiler `
+    --config "$root\ndsrecomp\bios\freebios9.toml" `
+    --bin $freebios9 `
+    --out $frameworkGenerated `
+    --bank freebios_arm9
+  if ($LASTEXITCODE -ne 0) { throw 'FreeBIOS ARM9 bank generation failed.' }
+  & $recompiler `
+    --config "$root\ndsrecomp\bios\freebios7.toml" `
+    --bin $freebios7 `
+    --out $frameworkGenerated `
+    --bank freebios_arm7
+  if ($LASTEXITCODE -ne 0) { throw 'FreeBIOS ARM7 bank generation failed.' }
 
   & $cmakePath -G $Generator -S "$root\ndsrecomp\runner" -B $runnerBuild `
     -DCMAKE_BUILD_TYPE=Release `
