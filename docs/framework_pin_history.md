@@ -30,6 +30,13 @@ Repository changes required:
   `SM64DS_LAUNCHER_SDL_BACKEND=SDL3|SDL2` (default `SDL3`), forwarded to
   recomp-ui through `SNESRECOMP_SDL_BACKEND` instead of hard-forcing
   `RECOMP_UI_SDL3=OFF`.
+- `tools/build-windows.ps1` and `tools/make_release.ps1` take
+  `-SdlBackend SDL3|SDL2` (default `SDL3`), forward it to the runner
+  (`NDS_SDL_BACKEND`) and the launcher (`SM64DS_LAUNCHER_SDL_BACKEND`), and
+  stage `SDL3.dll` instead of `SDL2.dll`. SDL3 builds additionally stage
+  `libiconv-2.dll`: MSYS2's SDL3 links it, and omitting it is what shipped
+  MPH v0.6.0/v0.6.1 builds that failed to start on player machines while
+  looking fine on a dev box with `mingw64\bin` on `PATH`.
 
 Bank regeneration is a no-op at this pin: all 71 generated bank translation
 units are byte-identical to the ones emitted at `46b12e6`. Any behaviour
