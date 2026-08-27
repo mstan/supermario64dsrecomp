@@ -17,6 +17,12 @@ endif()
 
 include("${NDSRECOMP_ROOT}/cmake/NdsCompilerCache.cmake")
 include("${NDSRECOMP_ROOT}/cmake/NdsJobPools.cmake")
+if(EXISTS "${NDSRECOMP_ROOT}/external/arm-recomp-core/cmake/ArmRecompCore.cmake")
+    include("${NDSRECOMP_ROOT}/external/arm-recomp-core/cmake/ArmRecompCore.cmake")
+    arm_recomp_core_include_dirs(NDS_ARM_RECOMP_INCLUDE_DIRS armv4t)
+else()
+    set(NDS_ARM_RECOMP_INCLUDE_DIRS)
+endif()
 
 # Build the real ndsrecomp ARM core/recompiler in the same build graph as the
 # per-game executable.
@@ -299,7 +305,8 @@ set_source_files_properties(${SM64DS_ARM7_SOURCES} PROPERTIES
     COMPILE_DEFINITIONS "NDS_STATIC_CPU=1")
 target_include_directories(sm64ds_recompiled_banks PRIVATE
     "${SM64DS_RECOMP_DIR}"
-    "${NDSRECOMP_ROOT}/recompiler/armv4t")
+    "${NDSRECOMP_ROOT}/recompiler/armv4t"
+    ${NDS_ARM_RECOMP_INCLUDE_DIRS})
 if(NOT MSVC)
     target_compile_options(sm64ds_recompiled_banks PRIVATE
         -w -O0 -g0)
@@ -327,7 +334,7 @@ endif()
 # physical stacked/separate windows and presentation quality remain ordinary
 # Display settings.
 option(SM64DS_BUILD_LAUNCHER "Build the SM64DS recomp-ui launcher" ON)
-if(SM64DS_BUILD_LAUNCHER AND WIN32)
+if(SM64DS_BUILD_LAUNCHER AND (WIN32 OR MINGW OR MSYS))
     set(SM64DS_RECOMP_UI_ROOT
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/recomp-ui"
         CACHE PATH "Path to the recomp-ui checkout")
@@ -336,11 +343,26 @@ if(SM64DS_BUILD_LAUNCHER AND WIN32)
             "recomp-ui submodule missing. Run "
             "`git submodule update --init third_party/recomp-ui`.")
     endif()
-    find_package(SDL2 CONFIG REQUIRED)
+    # Mirror the MPH launcher backend switch: SDL3 is the framework default
+    # frontend, with SDL2 selectable for fallback builds.
+    set(SM64DS_LAUNCHER_SDL_BACKEND "SDL3" CACHE STRING
+        "Launcher SDL backend: SDL3 or SDL2")
+    set_property(CACHE SM64DS_LAUNCHER_SDL_BACKEND PROPERTY STRINGS SDL3 SDL2)
+    if(SM64DS_LAUNCHER_SDL_BACKEND STREQUAL "SDL3")
+        find_package(SDL3 CONFIG REQUIRED)
+        set(SM64DS_LAUNCHER_SDL_TARGET SDL3::SDL3)
+    elseif(SM64DS_LAUNCHER_SDL_BACKEND STREQUAL "SDL2")
+        find_package(SDL2 CONFIG REQUIRED)
+        set(SM64DS_LAUNCHER_SDL_TARGET SDL2::SDL2)
+    else()
+        message(FATAL_ERROR
+            "SM64DS_LAUNCHER_SDL_BACKEND must be SDL3 or SDL2")
+    endif()
     add_executable(sm64ds_launcher src/launcher_main.cpp)
-    target_link_libraries(sm64ds_launcher PRIVATE SDL2::SDL2)
+    target_link_libraries(sm64ds_launcher PRIVATE ${SM64DS_LAUNCHER_SDL_TARGET})
     set(RECOMP_UI_ROOT "${SM64DS_RECOMP_UI_ROOT}")
-    set(RECOMP_UI_SDL3 OFF CACHE BOOL "" FORCE)
+    set(SNESRECOMP_SDL_BACKEND "${SM64DS_LAUNCHER_SDL_BACKEND}" CACHE STRING
+        "SDL backend consumed by recomp-ui" FORCE)
     set(RECOMP_UI_ENABLE_MODS ON CACHE BOOL "" FORCE)
     include("${SM64DS_RECOMP_UI_ROOT}/recomp_ui.cmake")
     recomp_target_launcher_ui(sm64ds_launcher

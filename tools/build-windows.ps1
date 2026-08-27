@@ -16,7 +16,9 @@ param(
   [int]$Jobs = 12,
   [string]$BuildDir = 'build-release',
   [string]$RunnerBuildDir = 'ndsrecomp\runner\build-sm64-native',
-  [string]$RuntimeBinDir = 'C:\msys64\mingw64\bin'
+  [string]$RuntimeBinDir = 'C:\msys64\mingw64\bin',
+  [ValidateSet('SDL3', 'SDL2')]
+  [string]$SdlBackend = 'SDL3'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,6 +38,7 @@ try {
   & $cmakePath -G $Generator -S $root -B $build `
     -DCMAKE_BUILD_TYPE=Release `
     -DNDSRECOMP_ROOT="$root\ndsrecomp" `
+    "-DSM64DS_LAUNCHER_SDL_BACKEND=$SdlBackend" `
     -DSM64DS_BUILD_LAUNCHER=ON
   if ($LASTEXITCODE -ne 0) { throw 'Game CMake configure failed.' }
   & $cmakePath --build $build --target supermario64dsrecomp -j $Jobs
@@ -78,6 +81,7 @@ try {
   & $cmakePath -G $Generator -S "$root\ndsrecomp\runner" -B $runnerBuild `
     -DCMAKE_BUILD_TYPE=Release `
     -DNDS_BOOTSTRAP_FIRMWARE=ON `
+    "-DNDS_SDL_BACKEND=$SdlBackend" `
     "-DNDS_TITLE_BANK_DIR=$titleBankDir" `
     "-DNDS_TITLE_ROM_SHA1=$romSha1"
   if ($LASTEXITCODE -ne 0) { throw 'Runner CMake configure failed.' }
@@ -92,7 +96,8 @@ try {
     -Version $Version `
     -RunnerBuildDir $RunnerBuildDir `
     -BuildDir $BuildDir `
-    -RuntimeBinDir $RuntimeBinDir
+    -RuntimeBinDir $RuntimeBinDir `
+    -SdlBackend $SdlBackend
   if ($LASTEXITCODE -ne 0) { throw 'Release packaging failed.' }
 } finally {
   Pop-Location
