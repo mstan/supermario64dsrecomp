@@ -111,6 +111,9 @@ Copy-Item -LiteralPath $assets -Destination $stage -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'game.toml') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $stage
+# The runner links vendored melonDS, so the shipped executable is a
+# GPL-3.0-or-later combined work and the release must carry the GPL text.
+Copy-Item -LiteralPath (Join-Path $root 'LICENSE-GPL') -Destination $stage
 if (Test-Path -LiteralPath (Join-Path $root 'docs\showcase')) {
   New-Item -ItemType Directory -Path (Join-Path $stage 'docs') -Force |
     Out-Null

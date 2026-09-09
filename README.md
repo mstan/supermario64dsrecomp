@@ -178,3 +178,8 @@ retain their respective terms and are not relicensed by it. Curated
 screenshots may be included to show current behavior; the game ROM, BIOS,
 firmware, saves, generated code, raw captures, and dumped game material are
 not distributed.
+
+Release binaries are a **GPL-3.0-or-later** combined work, because the
+`ndsrecomp` runner they link vendors melonDS device models; see
+[`LICENSE-GPL`](LICENSE-GPL). Distributing a build means shipping that
+license text and making the corresponding source available.

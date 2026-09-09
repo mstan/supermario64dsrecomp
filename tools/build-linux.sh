@@ -137,6 +137,9 @@ cp "$BIN" "$APPDIR/usr/bin/$RUNNER_NAME"
 cp "$REPO/game.toml" "$APPDIR/usr/bin/game.toml"
 cp "$REPO/README.md" "$APPDIR/usr/bin/README.md"
 cp "$REPO/LICENSE" "$APPDIR/usr/bin/LICENSE"
+# The runner links vendored melonDS, so the shipped executable is a
+# GPL-3.0-or-later combined work and the release must carry the GPL text.
+cp "$REPO/LICENSE-GPL" "$APPDIR/usr/bin/LICENSE-GPL"
 cp "$REPO/packaging/BIOS_README.txt" "$APPDIR/usr/bin/bios/README.txt"
 
 python3 - "$APPDIR/usr/share/icons/hicolor/256x256/apps/$APP_NAME.png" <<'PY'
