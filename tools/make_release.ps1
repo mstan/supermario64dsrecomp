@@ -9,7 +9,7 @@ staged.
 Build the runner and launcher first, then run:
 
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-    tools\make_release.ps1 -Version 0.0.3
+    tools\make_release.ps1 -Version 0.0.4
 #>
 param(
   [Parameter(Mandatory = $true)][string]$Version,
@@ -39,9 +39,6 @@ foreach ($required in @($runner, $launcher, $assets)) {
   }
 }
 
-if ($Version -ne '0.0.3') {
-  throw "This source tree is the 0.0.3 release; refusing version $Version."
-}
 $projectText = Get-Content (Join-Path $root 'CMakeLists.txt') -Raw
 if ($projectText -notmatch
     "project\(SuperMario64DSRecomp VERSION $([regex]::Escape($Version)) ") {

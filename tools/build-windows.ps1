@@ -7,10 +7,10 @@ portable ZIP with tools\make_release.ps1.
 
 Usage:
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
-    tools\build-windows.ps1 -Version 0.0.3
+    tools\build-windows.ps1 -Version 0.0.4
 #>
 param(
-  [string]$Version = '0.0.3',
+  [string]$Version = '0.0.4',
   [string]$CMake = 'C:\msys64\mingw64\bin\cmake.exe',
   [string]$Generator = 'Ninja',
   [int]$Jobs = 12,

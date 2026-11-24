@@ -10,7 +10,7 @@ set -euo pipefail
 APP_NAME="SuperMario64DSRecomp"
 TITLE_TARGET="sm64ds_generate_banks"
 RUNNER_NAME="nds_runner"
-VERSION="0.0.3"
+VERSION="0.0.4"
 JOBS="$(nproc 2>/dev/null || echo 4)"
 DO_PACKAGE=1
 
