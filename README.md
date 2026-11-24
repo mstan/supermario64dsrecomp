@@ -7,9 +7,8 @@
 
 Early Super Mario 64 DS static-recompilation target for
 [ndsrecomp](https://github.com/mstan/ndsrecomp). It recompiles and
-host-compiles the European game's ARM9 and ARM7 code banks, boots through the
-authentic BIOS/firmware/cartridge path, and reaches controllable castle-grounds
-gameplay with adaptive top-screen 21:9 presentation.
+host-compiles the European game's ARM9 and ARM7 code banks and supports direct
+cartridge boot with adaptive top-screen 21:9 presentation.
 
 No Nintendo ROM, BIOS, firmware, save data, extracted image, generated C
 source, raw capture, or generated bank belongs in Git or release artifacts.
@@ -41,6 +40,7 @@ The launcher remembers the ROM selection. The runner independently verifies
 the ROM before executing any title bank. Retail BIOS and firmware dumps are
 optional: if all three are present in `bios`, the launcher uses them; otherwise
 it falls back to bundled FreeBIOS code banks and generated firmware.
+Gameplay Diagnostics is enabled by default and can be turned off under Mods.
 
 ## Showcase
 
@@ -105,19 +105,22 @@ cmake -G Ninja -S . -B build
 cmake --build build --target supermario64dsrecomp
 ```
 
-To run through the shared title runner:
+To build the Windows launcher and title runner without making a ZIP:
 
 ```powershell
-cmake -G Ninja -S ndsrecomp/runner -B ndsrecomp/runner/build-sm64-native `
-  -DNDS_BOOTSTRAP_FIRMWARE=ON `
-  -DNDS_TITLE_BANK_DIR="$PWD/generated/recomp" `
-  -DNDS_TITLE_ROM_SHA1=1367529f2cb23e76ef295cb1727333ae8f0a6cd7
-cmake --build ndsrecomp/runner/build-sm64-native -j 12
-
-ndsrecomp/runner/build-sm64-native/nds_runner.exe ndsrecomp/bios `
-  --interactive --rom "Super Mario 64 DS.nds" --config game.toml `
-  --screen-layout separate --adaptive-widescreen top
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
+  tools\build-windows.ps1 -BuildOnly
 ```
+
+Windows builds keep the compiled title and BIOS banks in a separate build
+directory under `-BuildDir`. Changing the runner build directory or rebuilding
+the runtime can reuse the same bank archive. The bank build prefers Clang when
+it targets Windows x64 with the GNU ABI. Use `-BankCCompiler` to select another
+compatible compiler.
+
+For an existing archive built from matching bank sources and runtime headers,
+pass `-PrebuiltBankArchive` and its recorded `-PrebuiltBankArchiveSha256`.
+The runner verifies the archive digest during configuration.
 
 ## Release Packaging
 
@@ -139,29 +142,21 @@ The packagers validate the CMake version and framework pin, refuse a runner
 without the SM64DS title banks, stage only explicit safe payloads, and reject
 unsafe names or ROM/save/BIOS/firmware/generated material. The Linux AppImage
 starts `nds_runner` directly because the current title launcher is
-Windows-only; place the `.nds` ROM and a `bios/` folder containing your
-verified DS dumps beside the AppImage.
+Windows-only. Place the verified `.nds` ROM beside the AppImage. The optional
+`bios/` folder works there too.
 
-## Current Boot Boundary
+## Boot and Rendering
 
-The fake direct-boot shortcut remains deliberately unused. ndsrecomp models
-the physical-card command path used by the firmware, including chip identity,
-ROM streaming, DMA, KEY1 commands, and normalization of already-decrypted ROM
-secure areas before the BIOS decrypts them.
-
-The title configuration uses the original firmware's Automatic startup mode,
-so an inserted SM64DS cartridge launches without a host-simulated menu click.
-This only changes the redundant user-setting copies and their CRCs in memory;
-use `--startup-mode manual` when testing the DS menu itself.
+The runtime initializes the cartridge directly and the build uses ndsrecomp's
+native 3D geometry service. CPU execution uses the title's recompiled ARM9 and
+ARM7 banks. The upstream enhanced CPU, offline ARM7 and whole-asset profiles
+currently cover Mario Kart DS and Metroid Prime Hunters.
 
 Rendering defaults to Automatic, which prefers the OpenGL 4.3 compute backend
 and uses its direct GPU-resident top-window path where supported. Automatic
 mode falls back to the faithful threaded software renderer if OpenGL cannot
 initialize; an explicitly selected OpenGL backend fails loudly instead.
 
-The tested local target passes the firmware menu, launches both game CPUs,
-renders the Nintendo splash, accepts the game's `TOUCH TO START` input, and
-reaches castle-grounds gameplay without a terminal dispatch miss or CPU stall.
 The lower-screen renderer includes text, affine, and extended tiled/bitmap
 backgrounds, including SM64DS's courtyard minimap and its extended palette.
 

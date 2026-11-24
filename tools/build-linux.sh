@@ -8,8 +8,7 @@
 set -euo pipefail
 
 APP_NAME="SuperMario64DSRecomp"
-TITLE_TARGET="supermario64dsrecomp"
-ROM_SHA1="1367529f2cb23e76ef295cb1727333ae8f0a6cd7"
+TITLE_TARGET="sm64ds_generate_banks"
 RUNNER_NAME="nds_runner"
 VERSION="0.0.3"
 JOBS="$(nproc 2>/dev/null || echo 4)"
@@ -61,7 +60,7 @@ echo "[2/4] build title banks"
 cmake --build "$GAME_BUILD" --target "$TITLE_TARGET" -j"$JOBS"
 
 RECOMPILER="$GAME_BUILD/ndsrecomp-recompiler/nds_recompile"
-FRAMEWORK_GENERATED="$REPO/ndsrecomp/generated"
+FRAMEWORK_GENERATED="$RUNNER_BUILD/generated"
 mkdir -p "$FRAMEWORK_GENERATED"
 "$RECOMPILER" \
   --config "$REPO/ndsrecomp/bios/biosnds9.toml" \
@@ -88,10 +87,13 @@ echo "[3/4] configure runner"
 cmake -S "$REPO/ndsrecomp/runner" -B "$RUNNER_BUILD" -G "Unix Makefiles" \
   -DCMAKE_BUILD_TYPE=Release \
   -DNDS_BOOTSTRAP_FIRMWARE=ON \
-  -DNDS_TITLE_BANK_DIR="$TITLE_BANK_DIR" \
-  -DNDS_TITLE_ROM_SHA1="$ROM_SHA1"
+  -DNDS_3D_GEOMETRY=NATIVE \
+  -DNDS_RECOMP_UI_ROOT="$REPO/third_party/recomp-ui" \
+  -DCMAKE_PROJECT_nds_runner_INCLUDE="$REPO/cmake/runner-ui.cmake" \
+  -DNDS_GENERATED_DIR="$FRAMEWORK_GENERATED" \
+  -DNDS_SM64DS_BANK_DIR="$TITLE_BANK_DIR"
 echo "      build runner"
-cmake --build "$RUNNER_BUILD" -j"$JOBS"
+cmake --build "$RUNNER_BUILD" --target nds_runner -j"$JOBS"
 
 if [ "$DO_PACKAGE" = "0" ]; then
   echo "done: $RUNNER_BUILD/$RUNNER_NAME"
@@ -184,7 +186,7 @@ done
 MODE=""
 if [ ! -f "$RUNDIR/bios/biosnds9.rom" ] || [ ! -f "$RUNDIR/bios/biosnds7.rom" ] || \
    [ ! -f "$RUNDIR/bios/firmware.bin" ]; then
-  MODE="--freebios --generated-firmware --boot direct"
+  MODE="--freebios --generated-firmware"
 fi
 cd "$RUNDIR" 2>/dev/null || true
 if [ "$#" -eq 0 ]; then
@@ -192,11 +194,11 @@ if [ "$#" -eq 0 ]; then
     exec "$HERE/usr/bin/nds_runner" "$RUNDIR/bios" --interactive \
       --rom "$ROM" --config "$HERE/usr/bin/game.toml" \
       --screen-layout separate --adaptive-widescreen top \
-      --startup-mode automatic $MODE
+      --boot direct $MODE
   fi
   exec "$HERE/usr/bin/nds_runner" "$RUNDIR/bios" --interactive \
     --config "$HERE/usr/bin/game.toml" --screen-layout separate \
-    --adaptive-widescreen top --startup-mode automatic $MODE
+    --adaptive-widescreen top --boot direct $MODE
 fi
 exec "$HERE/usr/bin/nds_runner" "$@"
 EOF

@@ -3,7 +3,7 @@ name = "Super Mario 64 DS"
 id = "ASMP"
 region = "Europe"
 revision = 0
-status = "public preview: cartridge boot reaches castle-grounds gameplay with expected bugs"
+status = "development preview"
 rom = "Super Mario 64 DS.nds"
 rom_size = 0x01000000
 sha1 = "1367529f2cb23e76ef295cb1727333ae8f0a6cd7"
@@ -20,10 +20,8 @@ supersampling = 1
 antialiasing = 0
 
 [system]
-# Use the retail firmware's Automatic mode to launch the inserted Slot-1
-# cartridge after the normal BIOS/firmware safety path. Set "manual" to return
-# to the DS menu, or "preserve" to honor the dumped console setting.
-startup_mode = "automatic"
+# Initialize the cartridge in the host runtime and start the game directly.
+boot = "direct"
 
 [arm9]
 rom_offset = 0x00004000
@@ -39,7 +37,7 @@ size = 0x00024b24
 
 [framework]
 path = "ndsrecomp"
-pin = "12ee1b9fcdfd13eb66b844eddc7fc209c9ec3a43"
+pin = "e4a7f419eef6610e7e29df5aed96aa7a700cd493"
 
 [decomp]
 url = "https://github.com/tangosdev/sm64ds-decomp.git"

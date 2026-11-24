@@ -22,8 +22,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$runnerBuild = [IO.Path]::GetFullPath((Join-Path $root $RunnerBuildDir))
-$build = [IO.Path]::GetFullPath((Join-Path $root $BuildDir))
+function Resolve-BuildPath([string]$path) {
+  if (-not [IO.Path]::IsPathRooted($path)) { $path = Join-Path $root $path }
+  [IO.Path]::GetFullPath($path)
+}
+
+$runnerBuild = Resolve-BuildPath $RunnerBuildDir
+$build = Resolve-BuildPath $BuildDir
 $runner = Join-Path $runnerBuild 'nds_runner.exe'
 $launcher = Join-Path $build 'sm64ds_launcher.exe'
 $assets = Join-Path $build 'assets'

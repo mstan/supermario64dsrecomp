@@ -18,6 +18,7 @@ constexpr char kKnownSha1[] =
 
 struct ModState {
     bool adaptive_widescreen = true;
+    bool diagnostics = true;
     fs::path state_path;
     std::string error;
 };
@@ -35,18 +36,37 @@ void load_mod_state(ModState& state) {
             state.adaptive_widescreen = true;
         else if (line == "adaptive_widescreen=0")
             state.adaptive_widescreen = false;
+        else if (line == "diagnostics=1")
+            state.diagnostics = true;
+        else if (line == "diagnostics=0")
+            state.diagnostics = false;
     }
 }
 
 int mod_feature_count(void*) {
-    return 1;
+    return 2;
 }
 
 int mod_feature_get(void* context, int index,
                     RecompLauncherCModFeature* output) {
-    if (!context || !output || index != 0) return 0;
+    if (!context || !output || index < 0 || index >= mod_feature_count(context))
+        return 0;
     const auto* state = static_cast<const ModState*>(context);
     std::memset(output, 0, sizeof(*output));
+    if (index == 1) {
+        copy_text(output->id, "diagnostics");
+        copy_text(output->package_id, "sm64ds-diagnostics");
+        copy_text(output->package_version, "1.0.0");
+        copy_text(output->package_name, "SM64DS Gameplay Diagnostics");
+        copy_text(output->name, "Gameplay Diagnostics");
+        copy_text(output->author, "ndsrecomp");
+        copy_text(output->description,
+                  "Records gameplay performance and runtime diagnostics locally.");
+        copy_text(output->group, "Diagnostics");
+        copy_text(output->status, state->diagnostics ? "Enabled" : "Disabled");
+        output->enabled = state->diagnostics;
+        return 1;
+    }
     copy_text(output->id, "adaptive-widescreen");
     copy_text(output->package_id, "sm64ds-adaptive-widescreen");
     copy_text(output->package_version, "0.1.0");
@@ -72,12 +92,17 @@ int mod_feature_option_get(void*, const char*, const char*, int,
 
 int mod_feature_enable(void* context, const char* package_id,
                        const char* feature_id, int enabled) {
-    if (!context || !package_id || !feature_id ||
-        std::strcmp(package_id, "sm64ds-adaptive-widescreen") != 0 ||
-        std::strcmp(feature_id, "adaptive-widescreen") != 0) {
+    if (!context || !package_id || !feature_id) return 0;
+    auto* state = static_cast<ModState*>(context);
+    if (std::strcmp(package_id, "sm64ds-adaptive-widescreen") == 0 &&
+        std::strcmp(feature_id, "adaptive-widescreen") == 0) {
+        state->adaptive_widescreen = enabled != 0;
+    } else if (std::strcmp(package_id, "sm64ds-diagnostics") == 0 &&
+               std::strcmp(feature_id, "diagnostics") == 0) {
+        state->diagnostics = enabled != 0;
+    } else {
         return 0;
     }
-    static_cast<ModState*>(context)->adaptive_widescreen = enabled != 0;
     return 1;
 }
 
@@ -95,7 +120,8 @@ int mod_commit(void* context, const char*) {
         return 0;
     }
     output << "adaptive_widescreen="
-           << (state->adaptive_widescreen ? 1 : 0) << '\n';
+           << state->adaptive_widescreen << '\n'
+           << "diagnostics=" << state->diagnostics << '\n';
     state->error.clear();
     return 1;
 }
@@ -125,7 +151,7 @@ std::wstring quote(const fs::path& value) {
 }
 
 bool launch_runner(const fs::path& game_dir, const fs::path& rom,
-                   int display_layout, bool adaptive, int renderer,
+                   int display_layout, const ModState& mods, int renderer,
                    int supersampling, int antialiasing) {
     const fs::path runner = game_dir / "nds_runner.exe";
     const fs::path bios = game_dir / "bios";
@@ -160,14 +186,15 @@ bool launch_runner(const fs::path& game_dir, const fs::path& rom,
         L" --save-path " + quote(save) +
         L" --config " + quote(config) +
         L" --screen-layout " +
-        (adaptive || display_layout == 1 ? L"separate" : L"stacked") +
+        (mods.adaptive_widescreen || display_layout == 1 ? L"separate" : L"stacked") +
         L" --adaptive-widescreen " +
-        (adaptive ? L"top" : L"none") +
+        (mods.adaptive_widescreen ? L"top" : L"none") +
+        L" --diagnostics " + (mods.diagnostics ? L"on" : L"off") +
         L" --supersampling " + std::to_wstring(supersampling) +
         L" --antialiasing " + std::to_wstring(antialiasing) +
-        L" --startup-mode automatic";
+        L" --boot direct";
     if (no_dumps_mode)
-        command += L" --freebios --generated-firmware --boot direct";
+        command += L" --freebios --generated-firmware";
 
     wchar_t old_path[32768]{};
     GetEnvironmentVariableW(L"PATH", old_path,
@@ -192,6 +219,9 @@ bool launch_runner(const fs::path& game_dir, const fs::path& rom,
     }
     SetEnvironmentVariableW(
         L"NDS_3D_RENDERER", kRendererPolicies[renderer_index]);
+    const bool set_gpu_compositor = renderer_index != 1 &&
+        GetEnvironmentVariableW(L"NDS_3D_SURVIVORS", nullptr, 0) == 0;
+    if (set_gpu_compositor) SetEnvironmentVariableW(L"NDS_3D_SURVIVORS", L"1");
 
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
@@ -200,12 +230,14 @@ bool launch_runner(const fs::path& game_dir, const fs::path& rom,
         runner.wstring().c_str(), command.data(), nullptr, nullptr, FALSE,
         CREATE_NO_WINDOW, nullptr, game_dir.wstring().c_str(),
         &startup, &process);
+    const DWORD launch_error = ok ? ERROR_SUCCESS : GetLastError();
+    if (set_gpu_compositor) SetEnvironmentVariableW(L"NDS_3D_SURVIVORS", nullptr);
     SetEnvironmentVariableW(
         L"NDS_3D_RENDERER",
         old_renderer_size != 0 ? old_renderer.c_str() : nullptr);
     if (!ok) {
         std::fprintf(stderr, "CreateProcessW failed: %lu\n",
-                     static_cast<unsigned long>(GetLastError()));
+                     static_cast<unsigned long>(launch_error));
         return false;
     }
     CloseHandle(process.hThread);
@@ -274,7 +306,7 @@ int main(int argc, char** argv) {
         return 2;
     }
     return launch_runner(exe_dir, selected_rom, settings.display_layout,
-                         mod_state.adaptive_widescreen,
+                         mod_state,
                          settings.renderer,
                          settings.supersampling,
                          settings.antialiasing)

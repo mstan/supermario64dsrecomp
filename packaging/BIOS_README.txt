@@ -1,7 +1,6 @@
-Super Mario 64 DS Recomp requires BIOS and firmware dumped from your own
-Nintendo DS hardware.
+Super Mario 64 DS Recomp can start with bundled FreeBIOS and generated firmware.
 
-Place these files in this bios folder before launching:
+To use retail dumps from your own Nintendo DS, place all three files here:
 
   biosnds9.rom
     size: 4096 bytes
