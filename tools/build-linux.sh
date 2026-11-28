@@ -210,8 +210,7 @@ echo "[4/4] package AppImage"
   --icon-file "$APPDIR/usr/share/icons/hicolor/256x256/apps/$APP_NAME.png" >/dev/null
 
 APP="$OUT/$APP_NAME-linux-v$VERSION-x86_64.AppImage"
-rm -f "$APP"
-ARCH=x86_64 "$APPIMAGETOOL_BIN" --appimage-extract-and-run "$APPDIR" "$APP" >/dev/null
-chmod +x "$APP"
+source "$REPO/ndsrecomp/tools/package_appimage.sh"
+nds_package_appimage "$APP"
 bash "$REPO/tools/test_appimage_layout.sh" "$APPDIR"
 sha256sum "$APP"

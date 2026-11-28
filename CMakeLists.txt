@@ -17,6 +17,7 @@ endif()
 
 include("${NDSRECOMP_ROOT}/cmake/NdsCompilerCache.cmake")
 include("${NDSRECOMP_ROOT}/cmake/NdsJobPools.cmake")
+include("${NDSRECOMP_ROOT}/cmake/NdsGeneratedBanks.cmake")
 if(EXISTS "${NDSRECOMP_ROOT}/external/arm-recomp-core/cmake/ArmRecompCore.cmake")
     include("${NDSRECOMP_ROOT}/external/arm-recomp-core/cmake/ArmRecompCore.cmake")
     arm_recomp_core_include_dirs(NDS_ARM_RECOMP_INCLUDE_DIRS armv4t)
@@ -60,11 +61,11 @@ set(SM64DS_PREP_OUTPUTS
     "${SM64DS_INPUT_DIR}/arm7.toml")
 add_custom_command(
     OUTPUT ${SM64DS_PREP_OUTPUTS}
-    COMMAND "${SM64DS_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sm64ds.py"
+    COMMAND ${CMAKE_COMMAND} -E env "NDSRECOMP_ROOT=${NDSRECOMP_ROOT}" "${SM64DS_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sm64ds.py"
             --rom "${SM64DS_ROM}"
             --decomp "${SM64DS_DECOMP_ROOT}"
             --out "${SM64DS_INPUT_DIR}"
-    DEPENDS
+    DEPENDS "${NDSRECOMP_ROOT}/tools/nds_tools/cartridge.py" "${NDSRECOMP_ROOT}/tools/nds_tools/cartridge.py"
         "${SM64DS_ROM}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sm64ds.py"
         "${SM64DS_DECOMP_ROOT}/config/arm9/symbols.txt"
@@ -91,13 +92,12 @@ set(SM64DS_ARM7_SOURCES
 set(SM64DS_BANK_SOURCES ${SM64DS_ARM9_SOURCES} ${SM64DS_ARM7_SOURCES})
 
 set(SM64DS_ARM9_STAMP "${SM64DS_RECOMP_DIR}/sm64ds_arm9.stamp")
-add_custom_command(
-    OUTPUT "${SM64DS_ARM9_STAMP}"
+ndsrecomp_generate_bank(
+    STAMP "${SM64DS_ARM9_STAMP}"
+    DIRECTORY "${SM64DS_RECOMP_DIR}"
     BYPRODUCTS ${SM64DS_ARM9_SOURCES}
         "${SM64DS_RECOMP_DIR}/sm64ds_arm9.h"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
-    COMMAND $<TARGET_FILE:nds_recompile>
-            --config "${SM64DS_INPUT_DIR}/arm9.toml"
+    ARGS --config "${SM64DS_INPUT_DIR}/arm9.toml"
             --bin "${SM64DS_INPUT_DIR}/arm9.bin"
             --out "${SM64DS_RECOMP_DIR}"
             --bank sm64ds_arm9
@@ -109,25 +109,22 @@ add_custom_command(
             --max-function-bytes 16384
             --validate-live-bytes
             --hle-manifest "${SM64DS_HLE_MANIFEST}"
-    COMMAND ${CMAKE_COMMAND} -E touch "${SM64DS_ARM9_STAMP}"
-    DEPENDS nds_recompile ${SM64DS_PREP_OUTPUTS} "${SM64DS_HLE_MANIFEST}"
+    DEPENDS ${SM64DS_PREP_OUTPUTS} "${SM64DS_HLE_MANIFEST}"
     COMMENT "Statically recompiling the SM64DS ARM9 main module")
 list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM9_STAMP}")
 set(SM64DS_ARM7_STAMP "${SM64DS_RECOMP_DIR}/sm64ds_arm7.stamp")
-add_custom_command(
-    OUTPUT "${SM64DS_ARM7_STAMP}"
+ndsrecomp_generate_bank(
+    STAMP "${SM64DS_ARM7_STAMP}"
+    DIRECTORY "${SM64DS_RECOMP_DIR}"
     BYPRODUCTS ${SM64DS_ARM7_SOURCES}
         "${SM64DS_RECOMP_DIR}/sm64ds_arm7.h"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
-    COMMAND $<TARGET_FILE:nds_recompile>
-            --config "${SM64DS_INPUT_DIR}/arm7.toml"
+    ARGS --config "${SM64DS_INPUT_DIR}/arm7.toml"
             --bin "${SM64DS_INPUT_DIR}/arm7.bin"
             --out "${SM64DS_RECOMP_DIR}"
             --bank sm64ds_arm7
             --shards 2
             --max-function-bytes 512
-    COMMAND ${CMAKE_COMMAND} -E touch "${SM64DS_ARM7_STAMP}"
-    DEPENDS nds_recompile ${SM64DS_PREP_OUTPUTS}
+    DEPENDS ${SM64DS_PREP_OUTPUTS}
     COMMENT "Statically recompiling the initial SM64DS ARM7 closure")
 list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM7_STAMP}")
 
@@ -157,13 +154,12 @@ if(EXISTS "${SM64DS_ARM7_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM7_RAM_BIN}")
         "${SM64DS_RECOMP_DIR}/sm64ds_arm7_ram_dispatch.c")
     set(SM64DS_ARM7_RAM_STAMP
         "${SM64DS_RECOMP_DIR}/sm64ds_arm7_ram.stamp")
-    add_custom_command(
-        OUTPUT "${SM64DS_ARM7_RAM_STAMP}"
-        BYPRODUCTS ${SM64DS_ARM7_RAM_SOURCES}
+    ndsrecomp_generate_bank(
+    STAMP "${SM64DS_ARM7_RAM_STAMP}"
+    DIRECTORY "${SM64DS_RECOMP_DIR}"
+    BYPRODUCTS ${SM64DS_ARM7_RAM_SOURCES}
             "${SM64DS_RECOMP_DIR}/sm64ds_arm7_ram.h"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
-        COMMAND $<TARGET_FILE:nds_recompile>
-                --config "${SM64DS_ARM7_RAM_CONFIG}"
+    ARGS --config "${SM64DS_ARM7_RAM_CONFIG}"
                 --bin "${SM64DS_ARM7_RAM_BIN}"
                 --out "${SM64DS_RECOMP_DIR}"
                 --bank sm64ds_arm7_ram
@@ -171,11 +167,9 @@ if(EXISTS "${SM64DS_ARM7_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM7_RAM_BIN}")
                 --stable-address-shards
                 --max-function-bytes 512
                 --validate-live-bytes
-        COMMAND ${CMAKE_COMMAND} -E touch "${SM64DS_ARM7_RAM_STAMP}"
-        DEPENDS nds_recompile
-                "${SM64DS_ARM7_RAM_CONFIG}"
+    DEPENDS "${SM64DS_ARM7_RAM_CONFIG}"
                 "${SM64DS_ARM7_RAM_BIN}"
-        COMMENT "Statically recompiling the SM64DS ARM7 runtime-RAM bank")
+    COMMENT "Statically recompiling the SM64DS ARM7 runtime-RAM bank")
     list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM7_RAM_STAMP}")
     list(APPEND SM64DS_ARM7_SOURCES ${SM64DS_ARM7_RAM_SOURCES})
     list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM7_RAM_SOURCES})
@@ -207,13 +201,12 @@ if(EXISTS "${SM64DS_ARM9_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM9_RAM_BIN}")
         "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_dispatch.c")
     set(SM64DS_ARM9_RAM_STAMP
         "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram.stamp")
-    add_custom_command(
-        OUTPUT "${SM64DS_ARM9_RAM_STAMP}"
-        BYPRODUCTS ${SM64DS_ARM9_RAM_SOURCES}
+    ndsrecomp_generate_bank(
+    STAMP "${SM64DS_ARM9_RAM_STAMP}"
+    DIRECTORY "${SM64DS_RECOMP_DIR}"
+    BYPRODUCTS ${SM64DS_ARM9_RAM_SOURCES}
             "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram.h"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
-        COMMAND $<TARGET_FILE:nds_recompile>
-                --config "${SM64DS_ARM9_RAM_CONFIG}"
+    ARGS --config "${SM64DS_ARM9_RAM_CONFIG}"
                 --bin "${SM64DS_ARM9_RAM_BIN}"
                 --out "${SM64DS_RECOMP_DIR}"
                 --bank sm64ds_arm9_ram
@@ -224,12 +217,10 @@ if(EXISTS "${SM64DS_ARM9_RAM_CONFIG}" AND EXISTS "${SM64DS_ARM9_RAM_BIN}")
                 --coalesce-fallthroughs
                 --preceding-dispatch
                     "${SM64DS_RECOMP_DIR}/sm64ds_arm9_dispatch.c"
-        COMMAND ${CMAKE_COMMAND} -E touch "${SM64DS_ARM9_RAM_STAMP}"
-        DEPENDS nds_recompile
-                "${SM64DS_ARM9_RAM_CONFIG}"
+    DEPENDS "${SM64DS_ARM9_RAM_CONFIG}"
                 "${SM64DS_ARM9_RAM_BIN}"
                 "${SM64DS_ARM9_STAMP}"
-        COMMENT "Statically recompiling the SM64DS ARM9 runtime-RAM bank")
+    COMMENT "Statically recompiling the SM64DS ARM9 runtime-RAM bank")
     list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM9_RAM_STAMP}")
     list(APPEND SM64DS_ARM9_SOURCES ${SM64DS_ARM9_RAM_SOURCES})
     list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM9_RAM_SOURCES})
@@ -259,13 +250,12 @@ if(EXISTS "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}" AND
         "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_gameplay_dispatch.c")
     set(SM64DS_ARM9_RAM_GAMEPLAY_STAMP
         "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_gameplay.stamp")
-    add_custom_command(
-        OUTPUT "${SM64DS_ARM9_RAM_GAMEPLAY_STAMP}"
-        BYPRODUCTS ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES}
+    ndsrecomp_generate_bank(
+    STAMP "${SM64DS_ARM9_RAM_GAMEPLAY_STAMP}"
+    DIRECTORY "${SM64DS_RECOMP_DIR}"
+    BYPRODUCTS ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES}
             "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_gameplay.h"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${SM64DS_RECOMP_DIR}"
-        COMMAND $<TARGET_FILE:nds_recompile>
-                --config "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
+    ARGS --config "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
                 --bin "${SM64DS_ARM9_RAM_GAMEPLAY_BIN}"
                 --out "${SM64DS_RECOMP_DIR}"
                 --bank sm64ds_arm9_ram_gameplay
@@ -278,14 +268,11 @@ if(EXISTS "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}" AND
                     "${SM64DS_RECOMP_DIR}/sm64ds_arm9_dispatch.c"
                 --preceding-dispatch
                     "${SM64DS_RECOMP_DIR}/sm64ds_arm9_ram_dispatch.c"
-        COMMAND ${CMAKE_COMMAND} -E touch
-                "${SM64DS_ARM9_RAM_GAMEPLAY_STAMP}"
-        DEPENDS nds_recompile
-                "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
+    DEPENDS "${SM64DS_ARM9_RAM_GAMEPLAY_CONFIG}"
                 "${SM64DS_ARM9_RAM_GAMEPLAY_BIN}"
                 "${SM64DS_ARM9_STAMP}"
                 "${SM64DS_ARM9_RAM_STAMP}"
-        COMMENT "Statically recompiling the SM64DS ARM9 gameplay RAM bank")
+    COMMENT "Statically recompiling the SM64DS ARM9 gameplay RAM bank")
     list(APPEND SM64DS_BANK_STAMPS "${SM64DS_ARM9_RAM_GAMEPLAY_STAMP}")
     list(APPEND SM64DS_ARM9_SOURCES ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES})
     list(APPEND SM64DS_BANK_SOURCES ${SM64DS_ARM9_RAM_GAMEPLAY_SOURCES})
@@ -297,8 +284,7 @@ endif()
 add_custom_target(sm64ds_generate_banks DEPENDS ${SM64DS_BANK_STAMPS})
 add_library(sm64ds_recompiled_banks STATIC ${SM64DS_BANK_SOURCES})
 add_dependencies(sm64ds_recompiled_banks sm64ds_generate_banks)
-ndsrecomp_limit_generated_compiles(sm64ds_recompiled_banks)
-ndsrecomp_limit_link(sm64ds_recompiled_banks)
+ndsrecomp_target_generated_banks(sm64ds_recompiled_banks)
 set_source_files_properties(${SM64DS_ARM9_SOURCES} PROPERTIES
     COMPILE_DEFINITIONS "NDS_STATIC_CPU=0")
 set_source_files_properties(${SM64DS_ARM7_SOURCES} PROPERTIES
