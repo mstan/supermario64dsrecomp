@@ -9,6 +9,12 @@ copied into this repository.
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path as _NdsPath
+sys.path.insert(0, str(_NdsPath(os.environ.get("NDSRECOMP_ROOT", _NdsPath(__file__).resolve().parents[1] / "ndsrecomp")) / "tools"))
+from nds_tools.cartridge import sha1, toml_string, arm_images, extract_overlay
+
 import argparse
 import hashlib
 import json
@@ -38,12 +44,8 @@ SECTION_RE = re.compile(
 )
 
 
-def sha1(data: bytes) -> str:
-    return hashlib.sha1(data).hexdigest()
 
 
-def toml_string(value: str) -> str:
-    return json.dumps(value, ensure_ascii=True)
 
 
 def parse_functions(path: pathlib.Path, start: int, end: int) -> list[dict[str, object]]:
@@ -195,10 +197,7 @@ def main() -> int:
             f"ROM identity mismatch: code={bytes(rom.idCode)!r} revision={rom_bytes[0x1E]}"
         )
 
-    arm9 = code_compression.decompress(bytes(rom.arm9))
-    if len(arm9) < len(rom.arm9):
-        arm9 = bytes(rom.arm9)
-    arm7 = bytes(rom.arm7)
+    arm9, arm7 = arm_images(rom)
 
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -249,14 +248,7 @@ def main() -> int:
     overlays_dir.mkdir(parents=True, exist_ok=True)
     overlay_manifest: list[dict[str, object]] = []
     for overlay_id, overlay in sorted(rom.loadArm9Overlays().items()):
-        data = bytes(overlay.data)
-        if len(data) != int(overlay.ramSize):
-            raise SystemExit(
-                f"overlay {overlay_id} length mismatch: "
-                f"{len(data)} != {overlay.ramSize}"
-            )
-        filename = f"arm9_overlay_{overlay_id:03d}.bin"
-        (overlays_dir / filename).write_bytes(data)
+        data, record = extract_overlay(overlay_id, overlay, overlays_dir)
         if int(overlay.ramAddress) < DS_MAIN_RAM_LIMIT:
             write_overlay_config(
                 overlays_dir / f"arm9_overlay_{overlay_id:03d}.toml",
@@ -274,21 +266,7 @@ def main() -> int:
                 f"overlay {overlay_id} at 0x{int(overlay.ramAddress):08x} "
                 f"loads outside DS main RAM; no seed config emitted"
             )
-        overlay_manifest.append(
-            {
-                "id": overlay_id,
-                "file": filename,
-                "file_id": int(overlay.fileID),
-                "load_address": f"0x{int(overlay.ramAddress):08x}",
-                "size": int(overlay.ramSize),
-                "bss_size": int(overlay.bssSize),
-                "static_init_start": f"0x{int(overlay.staticInitStart):08x}",
-                "static_init_end": f"0x{int(overlay.staticInitEnd):08x}",
-                "compressed_in_rom": bool(overlay.compressed),
-                "compressed_size": int(overlay.compressedSize),
-                "sha1": sha1(data),
-            }
-        )
+        overlay_manifest.append(record)
     (out / "overlays.json").write_text(
         json.dumps(overlay_manifest, indent=2) + "\n",
         encoding="utf-8",

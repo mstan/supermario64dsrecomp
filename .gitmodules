@@ -1,6 +1,6 @@
 [submodule "ndsrecomp"]
 	path = ndsrecomp
-	url = https://github.com/mstan/ndsrecomp.git
+	url = https://github.com/RetroPortingToolKit/ndsrecomp.git
 [submodule "third_party/recomp-ui"]
 	path = third_party/recomp-ui
-	url = https://github.com/mstan/recomp-ui.git
+	url = https://github.com/RetroPortingToolKit/recomp-ui.git

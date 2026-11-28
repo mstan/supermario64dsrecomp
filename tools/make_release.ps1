@@ -97,10 +97,10 @@ if (-not $stageFull.StartsWith(
 }
 
 if (Test-Path -LiteralPath $stage) {
-  Remove-Item -LiteralPath $stage -Recurse -Force
+  Remove-Item -LiteralPath $stage -Recurse -ErrorAction Stop
 }
 if (Test-Path -LiteralPath $zip) {
-  Remove-Item -LiteralPath $zip -Force
+  Remove-Item -LiteralPath $zip -ErrorAction Stop
 }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $stage 'bios') -Force |
@@ -125,25 +125,9 @@ if (Test-Path -LiteralPath (Join-Path $root 'docs\showcase')) {
 Copy-Item -LiteralPath (Join-Path $root 'packaging\BIOS_README.txt') `
   -Destination (Join-Path $stage 'bios\README.txt')
 
-$runtimeDlls = @(
-  "$SdlBackend.dll",
-  'libgcc_s_seh-1.dll',
-  'libstdc++-6.dll',
-  'libwinpthread-1.dll'
-)
-if ($SdlBackend -eq 'SDL3') {
-  # MSYS2's SDL3 links libiconv; omitting it shipped MPH v0.6.0/v0.6.1 builds
-  # that died on player machines with "libiconv-2.dll was not found" --
-  # invisible on dev machines, where mingw64\bin on PATH satisfies it.
-  $runtimeDlls += 'libiconv-2.dll'
-}
-foreach ($name in $runtimeDlls) {
-  $source = Join-Path $RuntimeBinDir $name
-  if (-not (Test-Path -LiteralPath $source)) {
-    throw "Required runtime DLL missing: $source"
-  }
-  Copy-Item -LiteralPath $source -Destination $stage
-}
+$archiveTool = Join-Path (Join-Path $root 'ndsrecomp') 'tools\package_release.py'
+& python $archiveTool stage-runtime --stage $stageFull --runtime-bin $RuntimeBinDir --sdl-backend $SdlBackend
+if ($LASTEXITCODE -ne 0) { throw 'Runtime dependency staging failed.' }
 
 $forbidden = @(Get-ChildItem -LiteralPath $stage -File -Recurse |
   Where-Object {
@@ -155,52 +139,10 @@ if ($forbidden.Count -ne 0) {
   throw "Release stage contains forbidden private/derived material: $($forbidden.FullName -join ', ')"
 }
 
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$stagePrefix = $stageFull.TrimEnd('\') + '\'
-$files = @(Get-ChildItem -LiteralPath $stage -File -Recurse |
-  Sort-Object FullName)
-$archive = [IO.Compression.ZipFile]::Open(
-  $zipFull, [IO.Compression.ZipArchiveMode]::Create)
-try {
-  foreach ($file in $files) {
-    $fileFull = [IO.Path]::GetFullPath($file.FullName)
-    if (-not $fileFull.StartsWith(
-        $stagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
-      throw "Refusing to archive a file outside release stage: $fileFull"
-    }
-    $entryName = $fileFull.Substring($stagePrefix.Length).Replace('\', '/')
-    if ($entryName.StartsWith('/') -or
-        $entryName -match '(^|/)\.\.(/|$)') {
-      throw "Unsafe ZIP entry name: $entryName"
-    }
-    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-      $archive, $fileFull, $entryName,
-      [IO.Compression.CompressionLevel]::Optimal) | Out-Null
-  }
-} finally {
-  $archive.Dispose()
-}
-
-$archive = [IO.Compression.ZipFile]::OpenRead($zipFull)
-try {
-  $badEntries = @($archive.Entries | Where-Object {
-    $_.FullName.Contains('\') -or $_.FullName.StartsWith('/') -or
-    $_.FullName -match '(^|/)\.\.(/|$)' -or
-    [IO.Path]::GetExtension($_.FullName) -in
-      @('.nds', '.rom', '.sav', '.bin', '.gpr') -or
-    [IO.Path]::GetFileName($_.FullName) -in
-      @('biosnds9.rom', 'biosnds7.rom', 'firmware.bin')
-  })
-  if ($badEntries.Count -ne 0) {
-    throw "ZIP contains unsafe or private entries: $($badEntries.FullName -join ', ')"
-  }
-  if ($archive.Entries.Count -ne $files.Count) {
-    throw "ZIP entry count mismatch: expected $($files.Count), got $($archive.Entries.Count)"
-  }
-} finally {
-  $archive.Dispose()
-}
+# Title payload and bank/toolchain checks above remain authoritative.
+$archiveTool = Join-Path (Join-Path $root 'ndsrecomp') 'tools\package_release.py'
+& python $archiveTool archive --stage $stageFull --out $zipFull --objdump (Join-Path $RuntimeBinDir 'objdump.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Release archive validation failed.' }
 
 Write-Host "--- $stageName ---"
 Get-ChildItem -LiteralPath $stage | Select-Object Name, Length | Out-Host
